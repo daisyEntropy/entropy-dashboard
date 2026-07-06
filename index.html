@@ -459,7 +459,7 @@ function brandBadge(b){
   if (b.includes('모란디')) return `<span class="badge badge-morandi">${esc(b)}</span>`;
   return `<span class="badge badge-plain">${esc(b)}</span>`;
 }
-const STATUS_MAP = { '콜드':'st-cold','응답':'st-response','미팅':'st-meeting','조건협의':'st-nego','확정':'st-confirmed','탈락':'st-dropped' };
+const STATUS_MAP = { '콜드':'st-cold','응답':'st-response','미팅':'st-meeting','조건협의':'st-nego','확정':'st-confirmed','드랍':'st-dropped' };
 function statusBadge(s){ return `<span class="st ${STATUS_MAP[s]||'st-cold'}">${esc(s)||'-'}</span>`; }
 function fmtWon(n){ return (n||0).toLocaleString('ko-KR') + '원'; }
 function uniqueSorted(arr){ return [...new Set(arr.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko')); }
@@ -567,7 +567,7 @@ async function loadAll(){
 function populateFilterOptions(){
   const brands = uniqueSorted(SELLERS.map(r=>r.brand));
   const cats = uniqueSorted(SELLERS.map(r=>r.category));
-  const statuses = ['콜드','응답','미팅','조건협의','확정','탈락'].filter(s => SELLERS.some(r=>r.status===s));
+  const statuses = ['콜드','응답','미팅','조건협의','확정','드랍'].filter(s => SELLERS.some(r=>r.status===s));
   const owners = uniqueSorted(SELLERS.map(r=>r.owner));
   const fill = (sel, vals, cur) => { sel.innerHTML = '<option value="">전체</option>' + vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join(''); sel.value = cur; };
   fill(document.getElementById('f-brand'), brands, filters.brand);
@@ -589,7 +589,7 @@ function applyFilters(rows){
 /* ============================================================
    셀러 등록/수정 폼
    ============================================================ */
-const STATUS_OPTIONS = ['콜드','응답','미팅','조건협의','확정','탈락'];
+const STATUS_OPTIONS = ['콜드','응답','미팅','조건협의','확정','드랍'];
 function sellerFormFields(s){
   s = s || {};
   return field('seller_name','셀러명(인스타핸들)',{value:s.seller_name, required:true, full:true}) +
@@ -641,7 +641,7 @@ function renderOverview(){
   document.getElementById('f-count').textContent = `${rows.length} / ${SELLERS.length}건`;
   const total = rows.length;
   const confirmed = rows.filter(r=>r.status==='확정').length;
-  const dropped = rows.filter(r=>r.status==='탈락').length;
+  const dropped = rows.filter(r=>r.status==='드랍').length;
   const inProgress = rows.filter(r=>['응답','미팅','조건협의'].includes(r.status)).length;
   const responded = rows.filter(r=>r.status!=='콜드').length;
   const respRate = total ? responded/total : 0;
@@ -652,7 +652,7 @@ function renderOverview(){
       <div class="kpi-card hero"><div class="klabel">전체 셀러 수</div><div class="kval">${total}</div><div class="ksub">현재 필터 기준</div></div>
       <div class="kpi-card"><div class="klabel">확정 수</div><div class="kval green">${confirmed}</div><div class="ksub">전환율 ${total?((confirmed/total)*100).toFixed(1):'0.0'}%</div></div>
       <div class="kpi-card"><div class="klabel">진행중 (응답~조건협의)</div><div class="kval purple">${inProgress}</div><div class="ksub">팔로업 필요 셀러</div></div>
-      <div class="kpi-card"><div class="klabel">탈락 수</div><div class="kval red">${dropped}</div><div class="ksub">전체 대비 ${total?((dropped/total)*100).toFixed(1):'0.0'}%</div></div>
+      <div class="kpi-card"><div class="klabel">드랍 수</div><div class="kval red">${dropped}</div><div class="ksub">전체 대비 ${total?((dropped/total)*100).toFixed(1):'0.0'}%</div></div>
       <div class="kpi-card"><div class="klabel">응답률 (비-콜드)</div><div class="kval">${(respRate*100).toFixed(1)}%</div><div class="progress-track"><div class="progress-fill" style="width:${(respRate*100).toFixed(1)}%"></div></div></div>
     </div>
     <div class="grid2">
@@ -785,7 +785,7 @@ function renderRunner(){
   if (!selectedRunnerId || !pool.some(p=>p.id===selectedRunnerId)) selectedRunnerId = pool[0].id;
   const r = pool.find(p => p.id === selectedRunnerId);
   const stageIdx = STAGES.indexOf(r.status);
-  const dropped = r.status === '탈락';
+  const dropped = r.status === '드랍';
   const sales = r.actual_sales || 0;
   const dsince = daysSince(r.contact_date);
   el.innerHTML = `
@@ -800,7 +800,7 @@ function renderRunner(){
       <div class="kpi-card"><div class="klabel">최초 접촉일</div><div class="kval" style="font-size:16px;">${esc(r.contact_date)||'-'}</div><div class="ksub">${dsince!=null?`D+${dsince}일 경과`:'-'}</div></div>
     </div>
     <div class="panel" style="margin-bottom:18px;">
-      <div class="phead"><h3>진행 단계</h3>${dropped?'<span class="st st-dropped">탈락 처리됨</span>':''}</div>
+      <div class="phead"><h3>진행 단계</h3>${dropped?'<span class="st st-dropped">드랍 처리됨</span>':''}</div>
       <div class="stage-track">${STAGES.map((s,i)=>`<div class="stage-step ${dropped?(i===0?'done':''):(i<stageIdx?'done':i===stageIdx?'current':'')}"><span class="sline"></span><span class="sdot">${i+1}</span><span class="slabel">${s}</span></div>`).join('')}</div>
     </div>
     <div class="grid2" style="grid-template-columns:1fr 1fr;">
