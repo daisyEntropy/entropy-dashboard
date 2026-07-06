@@ -37,7 +37,23 @@
   html, body { margin:0; padding:0; background: var(--bg); color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Noto Sans KR", "Malgun Gothic", sans-serif;
     font-size: 13.5px; height: 100%; }
-  #app { display:flex; height:100vh; overflow:hidden; }
+  #app { display:none; height:100vh; overflow:hidden; }
+
+  #auth-loading, #login-overlay { position:fixed; inset:0; background:var(--bg); z-index:5000;
+    display:flex; align-items:center; justify-content:center; }
+  #login-overlay { display:none; }
+  .login-box { background:#fff; border:1px solid var(--border); border-radius:16px; padding:40px 36px;
+    text-align:center; width:360px; max-width:90vw; box-shadow:0 10px 40px rgba(0,0,0,.08); }
+  .login-box .login-logo { font-size:34px; margin-bottom:10px; }
+  .login-box h2 { font-size:16px; margin:0 0 8px; }
+  .login-box p { font-size:12.5px; color:var(--text-dim); margin:0 0 22px; line-height:1.6; }
+  .google-btn { display:inline-flex; align-items:center; gap:10px; background:#fff; border:1px solid var(--border);
+    border-radius:10px; padding:11px 22px; font-size:13px; font-weight:600; cursor:pointer; color:var(--text); }
+  .google-btn:hover { background:#f7f7f9; border-color:#ccc; }
+  .google-btn svg { width:18px; height:18px; }
+  .login-error { margin-top:14px; background:var(--status-dropped-bg); color:var(--status-dropped-fg);
+    border-radius:8px; padding:9px 12px; font-size:11.5px; line-height:1.5; }
+  .auth-spinner { font-size:12.5px; color:var(--text-dim); }
 
   #sidebar { width: 236px; flex-shrink:0; background: linear-gradient(180deg,var(--sidebar-bg),var(--sidebar-bg2));
     color: var(--sidebar-text); display:flex; flex-direction:column; padding: 16px 12px; overflow-y:auto; }
@@ -293,18 +309,36 @@
 </style>
 </head>
 <body>
+<div id="auth-loading"><div class="auth-spinner">불러오는 중…</div></div>
+
+<div id="login-overlay">
+  <div class="login-box">
+    <div class="login-logo">🌿</div>
+    <h2>엔트로피 마케팅 대시보드</h2>
+    <p>회사 Google 계정(@entropymakeup.com)으로만<br>로그인할 수 있어요.</p>
+    <button class="google-btn" id="btn-google-login">
+      <svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.6 5.1 29.6 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.2-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.8 1.1 8 3l6-6C34.6 5.1 29.6 3 24 3 16.3 3 9.7 7.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 45c5.5 0 10.4-1.9 14.2-5.1l-6.6-5.4C29.6 36.2 26.9 37 24 37c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.6 40.6 16.3 45 24 45z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4.1 5.5l6.6 5.4C41.5 35.6 45 30.2 45 24c0-1.2-.1-2.4-.4-3.5z"/></svg>
+      Google로 로그인
+    </button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
 <div id="app">
   <div id="sidebar">
     <div class="brand">엔트로피 마케팅<br><small>Entropy Makeup · Supabase 연동</small></div>
     <div class="user-chip">
-      <div class="avatar">D</div>
+      <div class="avatar" id="user-avatar">?</div>
       <div class="who">
-        <div class="name">daisy ENTROPY</div>
-        <div class="mail">daisy@entropymakeup.com</div>
+        <div class="name" id="user-name">-</div>
+        <div class="mail" id="user-email">-</div>
       </div>
     </div>
     <div id="nav"></div>
-    <div class="foot">이 화면에서 직접 등록·수정·삭제할 수 있어요.<br>데이터는 Supabase에 저장됩니다.</div>
+    <div class="foot">
+      이 화면에서 직접 등록·수정·삭제할 수 있어요.<br>데이터는 Supabase에 저장됩니다.
+      <button class="cal-today-btn" id="btn-logout" style="margin-top:10px;width:100%;background:rgba(255,255,255,0.06);color:var(--sidebar-text);border-color:rgba(255,255,255,0.15);">로그아웃</button>
+    </div>
   </div>
 
   <div id="main">
@@ -351,7 +385,7 @@ async function sb(path, opts){
   opts = opts || {};
   const headers = Object.assign({
     'apikey': SUPABASE_ANON_KEY,
-    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    'Authorization': `Bearer ${window.SB_ACCESS_TOKEN || SUPABASE_ANON_KEY}`,
     'Content-Type': 'application/json'
   }, opts.headers || {});
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, Object.assign({}, opts, { headers }));
@@ -1155,10 +1189,79 @@ function wireFilters(){
   document.getElementById('btn-refresh').addEventListener('click', loadAll);
 }
 
-renderNav();
-document.querySelector('.nav-item[data-view="overview"]').classList.add('active');
-wireFilters();
-loadAll();
+window.initApp = function(){
+  renderNav();
+  document.querySelector('.nav-item[data-view="overview"]').classList.add('active');
+  wireFilters();
+  loadAll();
+};
+</script>
+
+<script type="module">
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+  const SB_URL = 'https://qphwyoczszjtxogglups.supabase.co';
+  const SB_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwaHd5b2N6c3pqdHhvZ2dsdXBzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzMjExMzUsImV4cCI6MjA5ODg5NzEzNX0.ZXfYLVZJwQ-cJTssRX1R49z4Gi6cHW3TMvg10ABtx1A';
+  const ALLOWED_DOMAIN = 'entropymakeup.com';
+
+  const supa = createClient(SB_URL, SB_ANON_KEY);
+
+  function showLoading(){
+    document.getElementById('auth-loading').style.display = 'flex';
+    document.getElementById('login-overlay').style.display = 'none';
+    document.getElementById('app').style.display = 'none';
+  }
+  function showLogin(errMsg){
+    document.getElementById('auth-loading').style.display = 'none';
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('login-overlay').style.display = 'flex';
+    const errEl = document.getElementById('login-error');
+    if (errMsg){ errEl.textContent = '⚠ ' + errMsg; errEl.style.display = 'block'; }
+    else { errEl.style.display = 'none'; }
+  }
+  function showApp(user){
+    document.getElementById('auth-loading').style.display = 'none';
+    document.getElementById('login-overlay').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    const name = (user.user_metadata && (user.user_metadata.full_name || user.user_metadata.name)) || user.email;
+    document.getElementById('user-name').textContent = name;
+    document.getElementById('user-email').textContent = user.email;
+    document.getElementById('user-avatar').textContent = (user.email || '?')[0].toUpperCase();
+    if (!window.__appInited){
+      window.__appInited = true;
+      window.initApp();
+    }
+  }
+
+  async function handleSession(session){
+    if (!session){ showLogin(); return; }
+    const email = (session.user && session.user.email) || '';
+    if (!email.toLowerCase().endsWith('@' + ALLOWED_DOMAIN)){
+      await supa.auth.signOut();
+      showLogin(`${ALLOWED_DOMAIN} 회사 이메일로만 로그인할 수 있어요. (${email} 계정은 허용되지 않아요)`);
+      return;
+    }
+    window.SB_ACCESS_TOKEN = session.access_token;
+    showApp(session.user);
+  }
+
+  document.getElementById('btn-google-login').addEventListener('click', async () => {
+    await supa.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.href,
+        queryParams: { hd: ALLOWED_DOMAIN, prompt: 'select_account' }
+      }
+    });
+  });
+  document.getElementById('btn-logout').addEventListener('click', async () => {
+    await supa.auth.signOut();
+  });
+
+  supa.auth.onAuthStateChange((_event, session) => { handleSession(session); });
+
+  showLoading();
+  supa.auth.getSession().then(({ data }) => handleSession(data.session));
 </script>
 </body>
 </html>
