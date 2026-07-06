@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>엔트로피 마케팅 대시보드 (Supabase)</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f5f6fa;
+    --panel: #ffffff;
+    --border: #e7e8ee;
+    --text: #1c1d26;
+    --text-dim: #6f7d76;
+    --sage-light: #D1E5DA;
+    --sage-mid: #8FBBA3;
+    --accent: #3E6650;
+    --accent-dim: #D1E5DA;
+    --sidebar-bg: #16241d;
+    --sidebar-bg2: #1d3327;
+    --sidebar-text: #b7cdc0;
+    --sidebar-head: #6f8879;
+    --sidebar-active: #3E6650;
+    --brand-entropy: #2f9e6e;
+    --brand-entropy-bg: #e4f6ee;
+    --brand-morandi: #7c5cbf;
+    --brand-morandi-bg: #efe8fb;
+    --status-cold-bg: #eceef1; --status-cold-fg: #5b5e66;
+    --status-response-bg: #fff6d9; --status-response-fg: #8a6d00;
+    --status-meeting-bg: #dfeeff; --status-meeting-fg: #1a5aa8;
+    --status-nego-bg: #ffe9d6; --status-nego-fg: #a35a12;
+    --status-confirmed-bg: #dff5e3; --status-confirmed-fg: #1e8f4e;
+    --status-dropped-bg: #fbe1e4; --status-dropped-fg: #b23a4a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Noto Sans KR", "Malgun Gothic", sans-serif;
+    font-size: 13.5px; height: 100%; }
+  #app { display:flex; height:100vh; overflow:hidden; }
+
+  #sidebar { width: 236px; flex-shrink:0; background: linear-gradient(180deg,var(--sidebar-bg),var(--sidebar-bg2));
+    color: var(--sidebar-text); display:flex; flex-direction:column; padding: 16px 12px; overflow-y:auto; }
+  #sidebar .brand { font-weight:700; color:#fff; font-size:14.5px; padding: 4px 8px 14px; line-height:1.4; }
+  #sidebar .brand small { display:block; font-weight:400; color:#8083b0; font-size:11px; margin-top:3px; }
+  .user-chip { display:flex; align-items:center; gap:9px; background:rgba(255,255,255,0.06); border-radius:12px;
+    padding:9px 10px; margin-bottom:16px; }
+  .user-chip .avatar { width:30px; height:30px; border-radius:50%; background:var(--accent); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; flex-shrink:0; }
+  .user-chip .who { min-width:0; flex:1; }
+  .user-chip .name { color:#fff; font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .user-chip .mail { font-size:10.5px; color:#8083b0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .nav-group { margin-bottom:14px; }
+  .nav-group .glabel { font-size:10px; letter-spacing:.06em; color: var(--sidebar-head); font-weight:700;
+    text-transform:uppercase; padding:4px 10px 6px; }
+  .nav-item { display:flex; align-items:center; gap:9px; padding:9px 12px; border-radius:10px; cursor:pointer;
+    color: var(--sidebar-text); font-size:13px; font-weight:500; margin-bottom:2px; transition: background .12s; user-select:none; }
+  .nav-item:hover { background: rgba(255,255,255,0.06); }
+  .nav-item.active { background: var(--sidebar-active); color:#fff; }
+  .nav-item .ic { font-size:14.5px; width:18px; text-align:center; }
+  #sidebar .foot { margin-top:auto; padding:10px 8px 2px; font-size:10px; color:#5f6084; line-height:1.6; }
+
+  #main { flex:1; display:flex; flex-direction:column; min-width:0; overflow:hidden; }
+  #topbar { padding: 16px 26px 12px; border-bottom:1px solid var(--border); background: var(--panel); flex-shrink:0;
+    display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+  #topbar h1 { font-size:18px; margin:0 0 2px; }
+  #topbar .sub { color:var(--text-dim); font-size:12px; }
+  #status-line { display:flex; align-items:center; gap:8px; margin-top:8px; font-size:11.5px; color:var(--text-dim); }
+  .dot { width:6px; height:6px; border-radius:50%; background:#ccc; }
+  .dot.ok { background:#33c46a; }
+  .dot.err { background:#e5484d; }
+  .pill-btn { background:var(--accent); color:#fff; border:none; border-radius:99px; padding:9px 16px; font-size:12.5px;
+    font-weight:600; cursor:pointer; text-decoration:none; white-space:nowrap; display:inline-flex; align-items:center; gap:6px; }
+  .pill-btn:hover { background:#2f4f3e; }
+  .pill-btn.ghost { background:#fff; color:var(--accent); border:1px solid var(--accent); }
+  .pill-btn.ghost:hover { background:var(--sage-light); }
+  .topbar-actions { display:flex; gap:8px; flex-shrink:0; }
+
+  #filterbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding: 10px 26px; background: var(--panel);
+    border-bottom:1px solid var(--border); flex-shrink:0; }
+  #filterbar label { font-size:11.5px; color: var(--text-dim); margin-right:2px; }
+  #filterbar select, #filterbar input[type=text] { border:1px solid var(--border); border-radius:8px; padding:6px 10px;
+    font-size:12.5px; background:#fff; color:var(--text); outline:none; }
+  #filterbar select:focus, #filterbar input:focus { border-color: var(--accent); }
+  #filterbar .chip-count { margin-left:auto; font-size:11.5px; color:var(--text-dim); }
+  #filterbar .reset-btn { border:1px solid var(--border); background:#fff; border-radius:8px; padding:6px 12px;
+    font-size:12px; cursor:pointer; color:var(--text-dim); }
+  #filterbar .reset-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  #content { flex:1; overflow:auto; padding: 20px 26px 44px; }
+
+  .kpi-row { display:grid; grid-template-columns: repeat(5, 1fr); gap:14px; margin-bottom:18px; }
+  @media (max-width: 1150px) { .kpi-row { grid-template-columns: repeat(3,1fr); } }
+  .kpi-card { border-radius:14px; padding:16px 18px; border:1px solid var(--border); background:var(--panel); }
+  .kpi-card.hero { background: linear-gradient(135deg,var(--sage-mid),var(--accent)); border:none; color:#fff; }
+  .kpi-card .klabel { font-size:11.5px; opacity:.85; margin-bottom:8px; }
+  .kpi-card.hero .klabel { color:#eaf5ef; }
+  .kpi-card:not(.hero) .klabel { color: var(--text-dim); }
+  .kpi-card .kval { font-size:24px; font-weight:800; line-height:1.1; }
+  .kpi-card .ksub { font-size:11px; margin-top:6px; color: var(--text-dim); }
+  .kpi-card.hero .ksub { color:#eaf5ef; }
+  .kval.green { color:#1e8f4e; } .kval.red { color:#c0394a; } .kval.purple { color:#a3791f; }
+  .progress-track { height:6px; border-radius:99px; background:#eee; margin-top:9px; overflow:hidden; }
+  .progress-fill { height:100%; background: var(--accent); border-radius:99px; }
+
+  .grid2 { display:grid; grid-template-columns: 1.5fr 1fr; gap:14px; margin-bottom:18px; }
+  @media (max-width: 980px) { .grid2 { grid-template-columns:1fr; } }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:16px 18px; }
+  .panel .phead { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+  .panel .phead h3 { font-size:13.5px; margin:0; }
+  .panel .phead .lnk { font-size:11.5px; color:var(--accent); cursor:pointer; text-decoration:none; }
+  .chart-box { height:230px; position:relative; }
+  .donut-wrap { display:flex; align-items:center; gap:16px; }
+  .donut-wrap .chart-box { width:150px; height:150px; flex-shrink:0; }
+  .legend-list { flex:1; display:flex; flex-direction:column; gap:8px; }
+  .legend-row { display:flex; align-items:center; gap:8px; font-size:12px; }
+  .legend-row .sw { width:9px; height:9px; border-radius:3px; flex-shrink:0; }
+  .legend-row .lname { flex:1; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .legend-row .lval { font-weight:700; color:var(--text-dim); font-size:11.5px; }
+
+  .rank-row { display:flex; align-items:center; gap:10px; padding:7px 0; }
+  .rank-row .rname { width:110px; flex-shrink:0; font-size:12px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rank-row .rbar-track { flex:1; height:9px; border-radius:99px; background:#eef0f6; overflow:hidden; }
+  .rank-row .rbar-fill { height:100%; border-radius:99px; background: var(--accent); }
+  .rank-row .rval { width:64px; text-align:right; font-size:12px; font-weight:700; color:var(--text-dim); flex-shrink:0; }
+
+  .runner-picker { display:flex; align-items:center; gap:14px; margin-bottom:16px; flex-wrap:wrap; }
+  .runner-select { border:2px solid var(--accent); border-radius:12px; padding:12px 16px; font-size:14px; font-weight:700;
+    background:#fff; color:var(--text); outline:none; min-width:260px; }
+  .runner-hint { color:var(--text-dim); font-size:12px; }
+  .stage-track { display:flex; align-items:center; margin: 6px 0 4px; }
+  .stage-step { flex:1; text-align:center; position:relative; }
+  .stage-step .sdot { width:22px; height:22px; border-radius:50%; background:#e7e8ee; color:#9a9caa; font-size:11px;
+    display:flex; align-items:center; justify-content:center; margin:0 auto 6px; font-weight:700; position:relative; z-index:2; }
+  .stage-step .slabel { font-size:11px; color:var(--text-dim); font-weight:600; }
+  .stage-step .sline { position:absolute; top:11px; left:-50%; width:100%; height:3px; background:#e7e8ee; z-index:1; }
+  .stage-step:first-child .sline { display:none; }
+  .stage-step.done .sdot { background: var(--accent); color:#fff; }
+  .stage-step.done .sline { background: var(--accent); }
+  .stage-step.done .slabel { color: var(--text); }
+  .stage-step.current .sdot { background: var(--accent); color:#fff; box-shadow:0 0 0 4px var(--accent-dim); }
+  .stage-step.current .slabel { color: var(--accent); font-weight:800; }
+  .stage-step.dropped .sdot { background: var(--status-dropped-fg); color:#fff; }
+  .note-list { display:flex; flex-direction:column; gap:10px; }
+  .note-item { display:flex; gap:10px; padding:11px 13px; background:#faf9fc; border-radius:10px; border:1px solid var(--border); }
+  .note-item .nic { font-size:14px; flex-shrink:0; }
+  .note-item .ntitle { font-size:11px; color:var(--text-dim); font-weight:700; margin-bottom:3px; }
+  .note-item .nbody { font-size:12.5px; line-height:1.5; }
+  .note-item .nbody a { color: var(--accent); text-decoration:none; }
+
+  table.data { border-collapse:collapse; width:100%; background:var(--panel); border-radius:10px; overflow:hidden;
+    box-shadow: 0 0 0 1px var(--border); }
+  table.data thead th { position:sticky; top:0; background:#faf9fc; text-align:left; padding:9px 10px; font-size:11.5px;
+    color:var(--text-dim); border-bottom:1px solid var(--border); white-space:nowrap; z-index:1; }
+  table.data tbody td { padding:9px 10px; border-bottom:1px solid #f0f0f2; font-size:12.5px; vertical-align:top; }
+  table.data tbody tr:hover { background:#faf9ff; }
+  table.data tbody tr:last-child td { border-bottom:none; }
+  .cell-name { font-weight:600; }
+  .cell-note { color:var(--text-dim); max-width:320px; }
+  .cell-note a { color: var(--accent); text-decoration:none; }
+  .cell-note a:hover { text-decoration:underline; }
+  .muted { color:#bbb; }
+  .row-actions { display:flex; gap:6px; white-space:nowrap; }
+
+  .badge { display:inline-block; padding:2px 9px; border-radius:99px; font-size:11px; font-weight:600; white-space:nowrap; }
+  .badge-entropy { background: var(--brand-entropy-bg); color: var(--brand-entropy); }
+  .badge-morandi { background: var(--brand-morandi-bg); color: var(--brand-morandi); }
+  .badge-plain { background:#eee; color:#666; }
+  .st { display:inline-block; padding:3px 10px; border-radius:99px; font-size:11px; font-weight:700; white-space:nowrap; }
+  .st-cold { background:var(--status-cold-bg); color:var(--status-cold-fg); }
+  .st-response { background:var(--status-response-bg); color:var(--status-response-fg); }
+  .st-meeting { background:var(--status-meeting-bg); color:var(--status-meeting-fg); }
+  .st-nego { background:var(--status-nego-bg); color:var(--status-nego-fg); }
+  .st-confirmed { background:var(--status-confirmed-bg); color:var(--status-confirmed-fg); }
+  .st-dropped { background:var(--status-dropped-bg); color:var(--status-dropped-fg); }
+
+  section.block { margin-bottom:22px; }
+  section.block h2 { font-size:14px; margin:0 0 10px; display:flex; align-items:center; gap:10px; }
+
+  /* Month-grid calendar */
+  .cal-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:12px; }
+  .cal-nav { display:flex; align-items:center; gap:8px; }
+  .cal-nav-btn { width:28px; height:28px; border-radius:8px; border:1px solid var(--border); background:#fff;
+    cursor:pointer; font-size:14px; color:var(--text); display:flex; align-items:center; justify-content:center; }
+  .cal-nav-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .cal-month-label { font-weight:700; font-size:15px; min-width:104px; text-align:center; }
+  .cal-today-btn { border:1px solid var(--border); background:#fff; border-radius:8px; padding:6px 12px;
+    font-size:12px; cursor:pointer; color:var(--text-dim); }
+  .cal-today-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .cal-legend { font-size:11.5px; color:var(--text-dim); display:flex; align-items:center; gap:6px; }
+  .cal-legend-dot { width:9px; height:9px; border-radius:3px; background:var(--accent); display:inline-block; }
+  .cal-grid-wrap { background:var(--panel); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+  .cal-dow { display:grid; grid-template-columns: repeat(7,1fr); background:#faf9fc; border-bottom:1px solid var(--border); }
+  .cal-dow div { padding:8px 0; text-align:center; font-size:11px; font-weight:700; color:var(--text-dim); }
+  .cal-dow div:first-child { color:#c0504d; }
+  .cal-dow div:last-child { color:#3a6fb0; }
+  .cal-weeks { display:flex; flex-direction:column; }
+  .cal-week { position:relative; border-bottom:1px solid #f0f1f4; }
+  .cal-week:last-child { border-bottom:none; }
+  .cal-week-days { display:grid; grid-template-columns:repeat(7,1fr); }
+  .cal-daycell { border-right:1px solid #f0f1f4; padding:4px 5px; box-sizing:border-box; }
+  .cal-daycell:last-child { border-right:none; }
+  .cal-daycell.other-month { background:#fbfbfc; }
+  .cal-daynum { font-size:11px; font-weight:600; color:var(--text); display:inline-flex; align-items:center;
+    justify-content:center; width:20px; height:20px; border-radius:50%; }
+  .cal-daycell.other-month .cal-daynum { color:#c9cbd3; }
+  .cal-daynum.is-today { background:var(--accent); color:#fff; }
+  .cal-week-bars { position:absolute; left:0; right:0; top:24px; pointer-events:none; }
+  .cal-bar { position:absolute; height:19px; line-height:19px; font-size:10.5px; color:#fff; background:var(--accent);
+    padding:0 7px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; pointer-events:auto;
+    box-sizing:border-box; }
+  .cal-bar.round-l { border-top-left-radius:5px; border-bottom-left-radius:5px; margin-left:2px; }
+  .cal-bar.round-r { border-top-right-radius:5px; border-bottom-right-radius:5px; margin-right:2px; }
+  .cal-bar:hover { background:#2f4f3e; }
+  .cal-popover-backdrop { position:fixed; inset:0; z-index:999; background:transparent; }
+  .cal-popover { position:fixed; z-index:1000; width:300px; max-width:90vw; background:var(--panel);
+    border-radius:12px; box-shadow:0 10px 34px rgba(0,0,0,.22); padding:16px 18px; }
+  .cal-popover .cal-popover-close { position:absolute; top:8px; right:10px; cursor:pointer; color:var(--text-dim);
+    font-size:13px; background:none; border:none; width:24px; height:24px; border-radius:50%; }
+  .cal-popover .cal-popover-close:hover { background:var(--bg); }
+  .cal-popover h3 { margin:0 0 8px; font-size:14px; padding-right:20px; line-height:1.4; }
+  .cal-popover .cal-detail-range { font-size:11.5px; color:var(--text-dim); margin-bottom:10px; }
+  .cal-popover .cal-detail-desc { font-size:12.5px; line-height:1.6; white-space:pre-wrap; color:var(--text);
+    max-height:180px; overflow:auto; }
+  .cal-popover .cal-detail-actions { display:flex; gap:8px; margin-top:12px; }
+  .cal-note { font-size:11px; color:var(--text-dim); margin-top:8px; }
+
+  .content-meta { font-size:11.5px; color:var(--text-dim); margin-top:4px; }
+  .content-meta b { color:var(--text); font-weight:600; }
+  .content-empty-kpi { font-size:12px; color:var(--text-dim); padding:14px; background:var(--panel);
+    border:1px dashed var(--border); border-radius:10px; margin-bottom:16px; }
+
+  .empty-state { text-align:center; padding:60px 20px; color:var(--text-dim); }
+  .chart-wrap { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px; height:280px; }
+
+  table.kpi { border-collapse:collapse; width:100%; background:var(--panel); border-radius:10px; overflow:hidden;
+    box-shadow:0 0 0 1px var(--border); margin-bottom:20px; }
+  table.kpi th { background:#faf9fc; text-align:left; padding:9px 12px; font-size:11.5px; color:var(--text-dim); border-bottom:1px solid var(--border); }
+  table.kpi td { padding:9px 12px; border-bottom:1px solid #f0f0f2; font-size:12.5px; }
+  table.kpi tr:last-child td { border-bottom:none; }
+  table.kpi tr.total td { font-weight:700; background:#faf9fc; }
+
+  /* Modal / forms */
+  .modal-backdrop { position:fixed; inset:0; background:rgba(20,26,22,.45); z-index:3000; display:flex;
+    align-items:center; justify-content:center; padding:20px; }
+  .modal-box { background:#fff; border-radius:16px; padding:22px 24px 20px; width:520px; max-width:100%;
+    max-height:88vh; overflow:auto; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+  .modal-box h3 { margin:0 0 16px; font-size:15.5px; }
+  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px 14px; }
+  .form-row { margin-bottom:0; display:flex; flex-direction:column; gap:5px; }
+  .form-row.full { grid-column:1 / -1; }
+  .form-row label { font-size:11.5px; color:var(--text-dim); font-weight:600; }
+  .form-row input, .form-row select, .form-row textarea {
+    border:1px solid var(--border); border-radius:8px; padding:8px 10px; font-size:12.5px;
+    font-family:inherit; outline:none; background:#fff; color:var(--text); width:100%; }
+  .form-row input:focus, .form-row select:focus, .form-row textarea:focus { border-color:var(--accent); }
+  .form-row textarea { resize:vertical; min-height:58px; }
+  .modal-actions { display:flex; justify-content:space-between; align-items:center; margin-top:18px; }
+  .btn { border:none; border-radius:8px; padding:9px 16px; font-size:12.5px; font-weight:600; cursor:pointer; }
+  .btn-primary { background:var(--accent); color:#fff; }
+  .btn-primary:hover { background:#2f4f3e; }
+  .btn-secondary { background:#eee; color:var(--text); }
+  .btn-secondary:hover { background:#e2e2e2; }
+  .btn-danger { background:var(--status-dropped-bg); color:var(--status-dropped-fg); }
+  .btn-danger:hover { background:#f6cfd3; }
+  .btn-sm { padding:5px 10px; font-size:11px; border-radius:6px; }
+  .modal-err { background:var(--status-dropped-bg); color:var(--status-dropped-fg); border-radius:8px;
+    padding:8px 12px; font-size:11.5px; margin-bottom:12px; display:none; }
+
+  /* Toast */
+  #toast-wrap { position:fixed; top:18px; right:18px; z-index:4000; display:flex; flex-direction:column; gap:8px; }
+  .toast { background:#1c1d26; color:#fff; padding:10px 16px; border-radius:10px; font-size:12.5px;
+    box-shadow:0 8px 24px rgba(0,0,0,.25); animation: toast-in .18s ease-out; }
+  .toast.err { background:#b23a4a; }
+  .toast.ok { background:#1e8f4e; }
+  @keyframes toast-in { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+
+  /* Raw data */
+  .raw-tabs { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+  .raw-tab { border:1px solid var(--border); background:#fff; border-radius:99px; padding:7px 14px; font-size:12px;
+    cursor:pointer; color:var(--text-dim); font-weight:600; }
+  .raw-tab.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  table.raw { border-collapse:collapse; width:max-content; min-width:100%; background:var(--panel); border-radius:10px;
+    box-shadow:0 0 0 1px var(--border); font-size:11.5px; }
+  table.raw th { position:sticky; top:0; background:#faf9fc; text-align:left; padding:7px 9px; color:var(--text-dim);
+    border-bottom:1px solid var(--border); white-space:nowrap; }
+  table.raw td { padding:7px 9px; border-bottom:1px solid #f0f0f2; white-space:nowrap; max-width:260px;
+    overflow:hidden; text-overflow:ellipsis; }
+  .raw-scroll { overflow:auto; max-height:calc(100vh - 260px); border-radius:10px; }
+
+  ::-webkit-scrollbar { width:9px; height:9px; }
+  ::-webkit-scrollbar-thumb { background:#d8d8dc; border-radius:6px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="sidebar">
+    <div class="brand">엔트로피 마케팅<br><small>Entropy Makeup · Supabase 연동</small></div>
+    <div class="user-chip">
+      <div class="avatar">D</div>
+      <div class="who">
+        <div class="name">daisy ENTROPY</div>
+        <div class="mail">daisy@entropymakeup.com</div>
+      </div>
+    </div>
+    <div id="nav"></div>
+    <div class="foot">이 화면에서 직접 등록·수정·삭제할 수 있어요.<br>데이터는 Supabase에 저장됩니다.</div>
+  </div>
+
+  <div id="main">
+    <div id="topbar">
+      <div>
+        <h1 id="page-title">대시보드</h1>
+        <div class="sub" id="page-sub">인플루언서 공구 현황을 한눈에 확인하세요.</div>
+        <div id="status-line"><span class="dot" id="status-dot"></span><span id="status-text">불러오는 중…</span></div>
+      </div>
+      <div class="topbar-actions">
+        <button class="pill-btn ghost" id="btn-refresh">🔄 새로고침</button>
+        <button class="pill-btn" id="btn-add" style="display:none;">＋ 신규 등록</button>
+      </div>
+    </div>
+
+    <div id="filterbar">
+      <label>브랜드</label>
+      <select id="f-brand"><option value="">전체</option></select>
+      <label>카테고리</label>
+      <select id="f-category"><option value="">전체</option></select>
+      <label>상태</label>
+      <select id="f-status"><option value="">전체</option></select>
+      <label>담당자</label>
+      <select id="f-owner"><option value="">전체</option></select>
+      <input type="text" id="f-search" placeholder="셀러명 검색…" style="width:140px;">
+      <button class="reset-btn" id="f-reset">필터 초기화</button>
+      <span class="chip-count" id="f-count"></span>
+    </div>
+
+    <div id="content"></div>
+  </div>
+</div>
+
+<div id="toast-wrap"></div>
+
+<script>
+/* ============================================================
+   Supabase 연결 설정
+   ============================================================ */
+const SUPABASE_URL = 'https://qphwyoczszjtxogglups.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwaHd5b2N6c3pqdHhvZ2dsdXBzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzMjExMzUsImV4cCI6MjA5ODg5NzEzNX0.ZXfYLVZJwQ-cJTssRX1R49z4Gi6cHW3TMvg10ABtx1A';
+
+async function sb(path, opts){
+  opts = opts || {};
+  const headers = Object.assign({
+    'apikey': SUPABASE_ANON_KEY,
+    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    'Content-Type': 'application/json'
+  }, opts.headers || {});
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, Object.assign({}, opts, { headers }));
+  if (!res.ok){
+    let msg = res.statusText;
+    try { const j = await res.json(); msg = j.message || j.error_description || msg; } catch(e){}
+    throw new Error(msg || `HTTP ${res.status}`);
+  }
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+const sbSelect = (table, query) => sb(`${table}?${query || 'select=*'}`);
+const sbInsert = (table, rows) => sb(table, { method:'POST', headers:{ Prefer:'return=representation' }, body: JSON.stringify(rows) });
+const sbUpdate = (table, id, patch) => sb(`${table}?id=eq.${id}`, { method:'PATCH', headers:{ Prefer:'return=representation' }, body: JSON.stringify(patch) });
+const sbDelete = (table, id) => sb(`${table}?id=eq.${id}`, { method:'DELETE' });
+
+/* ============================================================
+   상태
+   ============================================================ */
+let SELLERS = [];
+let CAMPAIGNS = [];
+let CAL_EVENTS = [];
+let currentView = 'overview';
+let charts = {};
+let filters = { brand:'', category:'', status:'', owner:'', search:'' };
+let selectedRunnerId = null;
+let selectedCampaignId = null;
+let calMonthCursor = null;
+let rawTable = 'sellers';
+
+const NAV = [
+  { label:'메인', items:[ {key:'overview', ic:'📊', label:'대시보드'} ] },
+  { label:'인플루언서 (마켓)', items:[ {key:'list', ic:'📋', label:'인플루언서 관리'}, {key:'runner', ic:'🚀', label:'진행자별 분석'}, {key:'brand', ic:'🏷️', label:'브랜드별 분석'} ] },
+  { label:'컨텐츠 협업', items:[ {key:'content', ic:'🎬', label:'협업 캠페인'} ] },
+  { label:'일정', items:[ {key:'calendar', ic:'📅', label:'공동구매 캘린더'} ] },
+  { label:'성과', items:[ {key:'kpi', ic:'🧑‍💼', label:'담당자 KPI'} ] },
+  { label:'관리', items:[ {key:'raw', ic:'🗂️', label:'Raw 데이터'} ] },
+];
+
+function renderNav(){
+  const el = document.getElementById('nav');
+  el.innerHTML = NAV.map(g => `
+    <div class="nav-group">
+      <div class="glabel">${g.label}</div>
+      ${g.items.map(it => `<div class="nav-item" data-view="${it.key}"><span class="ic">${it.ic}</span>${it.label}</div>`).join('')}
+    </div>
+  `).join('');
+  el.querySelectorAll('.nav-item[data-view]').forEach(n => n.addEventListener('click', () => switchView(n.dataset.view)));
+}
+
+/* ============================================================
+   유틸
+   ============================================================ */
+function toast(msg, type){
+  const wrap = document.getElementById('toast-wrap');
+  const t = document.createElement('div');
+  t.className = 'toast' + (type ? ' ' + type : '');
+  t.textContent = msg;
+  wrap.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+function esc(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function linkify(text){
+  if (!text) return '';
+  const e = esc(text);
+  return e.replace(/(https?:\/\/[^\s]+)/g, url => `<a href="${url}" target="_blank">🔗 링크</a>`);
+}
+function brandBadge(b){
+  if (!b) return `<span class="badge badge-plain">-</span>`;
+  if (b.includes('엔트로피')) return `<span class="badge badge-entropy">${esc(b)}</span>`;
+  if (b.includes('모란디')) return `<span class="badge badge-morandi">${esc(b)}</span>`;
+  return `<span class="badge badge-plain">${esc(b)}</span>`;
+}
+const STATUS_MAP = { '콜드':'st-cold','응답':'st-response','미팅':'st-meeting','조건협의':'st-nego','확정':'st-confirmed','탈락':'st-dropped' };
+function statusBadge(s){ return `<span class="st ${STATUS_MAP[s]||'st-cold'}">${esc(s)||'-'}</span>`; }
+function fmtWon(n){ return (n||0).toLocaleString('ko-KR') + '원'; }
+function uniqueSorted(arr){ return [...new Set(arr.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko')); }
+function destroyChart(key){ if (charts[key]){ charts[key].destroy(); delete charts[key]; } }
+
+/* ============================================================
+   모달
+   ============================================================ */
+function closeModal(){ const b = document.getElementById('modal-backdrop'); if (b) b.remove(); }
+function openModal(title, bodyHtml, onSubmit, opts){
+  closeModal();
+  const backdrop = document.createElement('div');
+  backdrop.id = 'modal-backdrop';
+  backdrop.className = 'modal-backdrop';
+  backdrop.addEventListener('click', e => { if (e.target === backdrop) closeModal(); });
+  const box = document.createElement('div');
+  box.className = 'modal-box';
+  box.innerHTML = `
+    <h3>${title}</h3>
+    <div class="modal-err" id="modal-err"></div>
+    <form id="modal-form">
+      <div class="form-grid">${bodyHtml}</div>
+      <div class="modal-actions">
+        <div>${opts && opts.onDelete ? `<button type="button" class="btn btn-danger btn-sm" id="modal-delete">삭제</button>` : ''}</div>
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="btn btn-secondary" id="modal-cancel">취소</button>
+          <button type="submit" class="btn btn-primary" id="modal-submit">저장</button>
+        </div>
+      </div>
+    </form>
+  `;
+  backdrop.appendChild(box);
+  document.body.appendChild(backdrop);
+  document.getElementById('modal-cancel').addEventListener('click', closeModal);
+  if (opts && opts.onDelete){
+    document.getElementById('modal-delete').addEventListener('click', async () => {
+      if (!confirm('정말 삭제할까요? 되돌릴 수 없어요.')) return;
+      try { await opts.onDelete(); closeModal(); } catch(err){ showModalErr(err.message); }
+    });
+  }
+  document.getElementById('modal-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const data = Object.fromEntries(fd.entries());
+    const btn = document.getElementById('modal-submit');
+    btn.disabled = true; btn.textContent = '저장 중…';
+    try {
+      await onSubmit(data);
+      closeModal();
+    } catch(err){
+      showModalErr(err.message);
+      btn.disabled = false; btn.textContent = '저장';
+    }
+  });
+}
+function showModalErr(msg){
+  const el = document.getElementById('modal-err');
+  if (!el) return;
+  el.textContent = '⚠ ' + msg;
+  el.style.display = 'block';
+}
+function field(name, label, opts){
+  opts = opts || {};
+  const full = opts.full ? ' full' : '';
+  const val = opts.value != null ? esc(opts.value) : '';
+  let input;
+  if (opts.type === 'select'){
+    input = `<select name="${name}" ${opts.required?'required':''}>${opts.options.map(o=>`<option value="${esc(o)}" ${o===opts.value?'selected':''}>${esc(o)}</option>`).join('')}</select>`;
+  } else if (opts.type === 'textarea'){
+    input = `<textarea name="${name}" ${opts.required?'required':''}>${val}</textarea>`;
+  } else {
+    input = `<input type="${opts.type||'text'}" name="${name}" value="${val}" ${opts.required?'required':''} ${opts.step?`step="${opts.step}"`:''}>`;
+  }
+  return `<div class="form-row${full}"><label>${label}</label>${input}</div>`;
+}
+
+/* ============================================================
+   데이터 로드
+   ============================================================ */
+async function loadAll(){
+  const dot = document.getElementById('status-dot');
+  const txt = document.getElementById('status-text');
+  dot.className = 'dot';
+  txt.textContent = 'Supabase에서 불러오는 중…';
+  try {
+    const [sellers, campaigns, calEvents] = await Promise.all([
+      sbSelect('sellers', 'select=*&order=created_at.desc'),
+      sbSelect('campaigns', 'select=*,campaign_collaborators(*)&order=created_at.desc'),
+      sbSelect('market_calendar_events', 'select=*&order=start_date.asc')
+    ]);
+    SELLERS = sellers || [];
+    CAMPAIGNS = campaigns || [];
+    CAL_EVENTS = calEvents || [];
+    dot.className = 'dot ok';
+    txt.textContent = `총 ${SELLERS.length}명 · ${new Date().toLocaleString('ko-KR',{hour12:false})} 기준`;
+    populateFilterOptions();
+    VIEWS[currentView].render();
+  } catch(err){
+    dot.className = 'dot err';
+    txt.textContent = '불러오지 못했어요: ' + err.message;
+    document.getElementById('content').innerHTML = `<div class="empty-state">⚠️ Supabase 연결에 실패했어요.<br>${esc(err.message)}<br><br>Project URL / anon key, 그리고 supabase_schema.sql 실행 여부를 확인해주세요.</div>`;
+  }
+}
+
+function populateFilterOptions(){
+  const brands = uniqueSorted(SELLERS.map(r=>r.brand));
+  const cats = uniqueSorted(SELLERS.map(r=>r.category));
+  const statuses = ['콜드','응답','미팅','조건협의','확정','탈락'].filter(s => SELLERS.some(r=>r.status===s));
+  const owners = uniqueSorted(SELLERS.map(r=>r.owner));
+  const fill = (sel, vals, cur) => { sel.innerHTML = '<option value="">전체</option>' + vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join(''); sel.value = cur; };
+  fill(document.getElementById('f-brand'), brands, filters.brand);
+  fill(document.getElementById('f-category'), cats, filters.category);
+  fill(document.getElementById('f-status'), statuses, filters.status);
+  fill(document.getElementById('f-owner'), owners, filters.owner);
+}
+function applyFilters(rows){
+  return rows.filter(r => {
+    if (filters.brand && r.brand !== filters.brand) return false;
+    if (filters.category && r.category !== filters.category) return false;
+    if (filters.status && r.status !== filters.status) return false;
+    if (filters.owner && r.owner !== filters.owner) return false;
+    if (filters.search && !(r.seller_name||'').toLowerCase().includes(filters.search.toLowerCase())) return false;
+    return true;
+  });
+}
+
+/* ============================================================
+   셀러 등록/수정 폼
+   ============================================================ */
+const STATUS_OPTIONS = ['콜드','응답','미팅','조건협의','확정','탈락'];
+function sellerFormFields(s){
+  s = s || {};
+  return field('seller_name','셀러명(인스타핸들)',{value:s.seller_name, required:true, full:true}) +
+    field('brand','브랜드',{value:s.brand}) +
+    field('category','카테고리',{value:s.category}) +
+    field('contactor','컨택자',{value:s.contactor}) +
+    field('owner','담당자',{value:s.owner}) +
+    field('contact_date','접촉일',{type:'date', value:s.contact_date}) +
+    field('status','상태',{type:'select', options:STATUS_OPTIONS, value:s.status||'콜드'}) +
+    field('followers','팔로워 수',{type:'number', value:s.followers}) +
+    field('expected_week','예상 공구 주차',{value:s.expected_week}) +
+    field('actual_sales','실제 매출',{type:'number', value:s.actual_sales}) +
+    field('note','비고',{type:'textarea', value:s.note, full:true}) +
+    field('followup','후속업무',{value:s.followup, full:true});
+}
+function openSellerForm(seller){
+  const isEdit = !!seller;
+  openModal(isEdit?'셀러 정보 수정':'신규 셀러 등록', sellerFormFields(seller), async (data) => {
+    const payload = {
+      seller_name: data.seller_name, brand: data.brand||null, category: data.category||null,
+      contactor: data.contactor||null, owner: data.owner||null, contact_date: data.contact_date||null,
+      status: data.status, followers: data.followers?Number(data.followers):null,
+      expected_week: data.expected_week||null, actual_sales: data.actual_sales?Number(data.actual_sales):null,
+      note: data.note||null, followup: data.followup||null
+    };
+    if (isEdit) await sbUpdate('sellers', seller.id, payload);
+    else await sbInsert('sellers', [payload]);
+    toast(isEdit?'셀러 정보를 수정했어요.':'신규 셀러를 등록했어요.', 'ok');
+    await loadAll();
+  }, isEdit ? { onDelete: async () => { await sbDelete('sellers', seller.id); toast('셀러를 삭제했어요.'); await loadAll(); } } : null);
+}
+
+/* ============================================================
+   대시보드 개요
+   ============================================================ */
+function mondayOf(dateStr){
+  if (!dateStr) return null;
+  const d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d)) return null;
+  const day = (d.getDay()+6)%7;
+  d.setDate(d.getDate()-day);
+  return d;
+}
+function fmtMD(d){ return `${d.getMonth()+1}/${d.getDate()}`; }
+
+function renderOverview(){
+  document.getElementById('btn-add').style.display = 'none';
+  const rows = applyFilters(SELLERS);
+  document.getElementById('f-count').textContent = `${rows.length} / ${SELLERS.length}건`;
+  const total = rows.length;
+  const confirmed = rows.filter(r=>r.status==='확정').length;
+  const dropped = rows.filter(r=>r.status==='탈락').length;
+  const inProgress = rows.filter(r=>['응답','미팅','조건협의'].includes(r.status)).length;
+  const responded = rows.filter(r=>r.status!=='콜드').length;
+  const respRate = total ? responded/total : 0;
+
+  const el = document.getElementById('content');
+  el.innerHTML = `
+    <div class="kpi-row">
+      <div class="kpi-card hero"><div class="klabel">전체 셀러 수</div><div class="kval">${total}</div><div class="ksub">현재 필터 기준</div></div>
+      <div class="kpi-card"><div class="klabel">확정 수</div><div class="kval green">${confirmed}</div><div class="ksub">전환율 ${total?((confirmed/total)*100).toFixed(1):'0.0'}%</div></div>
+      <div class="kpi-card"><div class="klabel">진행중 (응답~조건협의)</div><div class="kval purple">${inProgress}</div><div class="ksub">팔로업 필요 셀러</div></div>
+      <div class="kpi-card"><div class="klabel">탈락 수</div><div class="kval red">${dropped}</div><div class="ksub">전체 대비 ${total?((dropped/total)*100).toFixed(1):'0.0'}%</div></div>
+      <div class="kpi-card"><div class="klabel">응답률 (비-콜드)</div><div class="kval">${(respRate*100).toFixed(1)}%</div><div class="progress-track"><div class="progress-fill" style="width:${(respRate*100).toFixed(1)}%"></div></div></div>
+    </div>
+    <div class="grid2">
+      <div class="panel"><div class="phead"><h3>주차별 신규 컨택 추이</h3><span class="lnk" data-goto="list">인플루언서 관리 →</span></div><div class="chart-box"><canvas id="chart-trend"></canvas></div></div>
+      <div class="panel"><div class="phead"><h3>카테고리별 비중</h3><span class="lnk" data-goto="brand">브랜드별 분석 →</span></div>
+        <div class="donut-wrap"><div class="chart-box"><canvas id="chart-cat"></canvas></div><div class="legend-list" id="cat-legend"></div></div>
+      </div>
+    </div>
+    <div class="grid2" style="grid-template-columns:1fr 1fr;">
+      <div class="panel"><div class="phead"><h3>브랜드별 셀러 수</h3></div><div id="rank-brand"></div></div>
+      <div class="panel"><div class="phead"><h3>담당자별 확정 수</h3><span class="lnk" data-goto="kpi">담당자 KPI →</span></div><div id="rank-owner"></div></div>
+    </div>
+  `;
+  el.querySelectorAll('[data-goto]').forEach(n => n.addEventListener('click', () => switchView(n.dataset.goto)));
+
+  const weekMap = {};
+  rows.forEach(r => { const mon = mondayOf(r.contact_date); if (!mon) return; const k = mon.getTime(); weekMap[k]=(weekMap[k]||0)+1; });
+  const weekKeys = Object.keys(weekMap).map(Number).sort((a,b)=>a-b);
+  destroyChart('trend');
+  const tctx = document.getElementById('chart-trend');
+  if (tctx && window.Chart){
+    charts.trend = new Chart(tctx, { type:'line',
+      data:{ labels: weekKeys.length?weekKeys.map(k=>fmtMD(new Date(k))+'주'):['데이터 없음'],
+        datasets:[{ label:'신규 컨택', data: weekKeys.length?weekKeys.map(k=>weekMap[k]):[0],
+          borderColor:'#3E6650', backgroundColor:'rgba(62,102,80,0.14)', fill:true, tension:.35, pointRadius:3 }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+        scales:{ x:{ticks:{font:{size:10.5}}}, y:{beginAtZero:true, ticks:{precision:0, font:{size:10.5}}} } } });
+  }
+  const catCounts = {};
+  rows.forEach(r => { const c = r.category || '미정'; catCounts[c]=(catCounts[c]||0)+1; });
+  const catLabels = Object.keys(catCounts).sort((a,b)=>catCounts[b]-catCounts[a]);
+  const palette = ['#3E6650','#8FBBA3','#C9A24B','#B5715F','#5E86A6','#8C7BB0','#9AA79E'];
+  destroyChart('cat');
+  const cctx = document.getElementById('chart-cat');
+  if (cctx && window.Chart && catLabels.length){
+    charts.cat = new Chart(cctx, { type:'doughnut',
+      data:{ labels: catLabels, datasets:[{ data: catLabels.map(c=>catCounts[c]), backgroundColor: catLabels.map((_,i)=>palette[i%palette.length]), borderWidth:2, borderColor:'#fff' }] },
+      options:{ responsive:true, maintainAspectRatio:false, cutout:'68%', plugins:{legend:{display:false}} } });
+  }
+  const catTotal = catLabels.reduce((s,c)=>s+catCounts[c],0) || 1;
+  document.getElementById('cat-legend').innerHTML = catLabels.map((c,i) => `<div class="legend-row"><span class="sw" style="background:${palette[i%palette.length]}"></span><span class="lname">${esc(c)}</span><span class="lval">${((catCounts[c]/catTotal)*100).toFixed(0)}%</span></div>`).join('') || '<div class="empty-state" style="padding:10px 0;">데이터 없음</div>';
+
+  const brandCounts = {}; rows.forEach(r => { const b = r.brand||'미정'; brandCounts[b]=(brandCounts[b]||0)+1; });
+  renderRankList('rank-brand', brandCounts, false);
+  const ownerConfirmed = {}; rows.filter(r=>r.status==='확정').forEach(r => { const o = r.owner||'미정'; ownerConfirmed[o]=(ownerConfirmed[o]||0)+1; });
+  renderRankList('rank-owner', ownerConfirmed, false, '확정 없음');
+}
+function renderRankList(elId, countMap, isWon, emptyLabel){
+  const el = document.getElementById(elId);
+  const keys = Object.keys(countMap).sort((a,b)=>countMap[b]-countMap[a]);
+  if (!keys.length){ el.innerHTML = `<div class="empty-state" style="padding:20px 0;">${emptyLabel||'데이터 없음'}</div>`; return; }
+  const max = Math.max(...keys.map(k=>countMap[k]));
+  el.innerHTML = keys.map(k => `<div class="rank-row"><span class="rname">${esc(k)}</span><span class="rbar-track"><span class="rbar-fill" style="width:${max?(countMap[k]/max*100):0}%"></span></span><span class="rval">${isWon?fmtWon(countMap[k]):countMap[k]+'건'}</span></div>`).join('');
+}
+
+/* ============================================================
+   인플루언서 관리 (CRUD)
+   ============================================================ */
+function renderList(){
+  const btn = document.getElementById('btn-add');
+  btn.style.display = 'inline-flex';
+  btn.onclick = () => openSellerForm(null);
+  const rows = applyFilters(SELLERS);
+  document.getElementById('f-count').textContent = `${rows.length} / ${SELLERS.length}건`;
+  const el = document.getElementById('content');
+  if (!rows.length){ el.innerHTML = `<div class="empty-state">조건에 맞는 셀러가 없어요.<br>상단 '＋ 신규 등록'으로 추가해보세요.</div>`; return; }
+  el.innerHTML = `
+  <table class="data">
+    <thead><tr>
+      <th>셀러명</th><th>브랜드</th><th>카테고리</th><th>컨택자</th><th>담당자</th><th>접촉일</th>
+      <th>상태</th><th>팔로워</th><th>예상 공구 주차</th><th>실제 매출</th><th>비고</th><th>후속업무</th><th></th>
+    </tr></thead>
+    <tbody>
+      ${rows.map(r => `<tr data-id="${r.id}">
+        <td class="cell-name">${esc(r.seller_name)}</td>
+        <td>${brandBadge(r.brand)}</td>
+        <td>${esc(r.category) || '<span class=muted>-</span>'}</td>
+        <td>${esc(r.contactor) || '<span class=muted>-</span>'}</td>
+        <td>${esc(r.owner) || '<span class=muted>-</span>'}</td>
+        <td>${esc(r.contact_date) || '<span class=muted>-</span>'}</td>
+        <td>${statusBadge(r.status)}</td>
+        <td>${r.followers ?? '<span class=muted>-</span>'}</td>
+        <td>${esc(r.expected_week) || '<span class=muted>-</span>'}</td>
+        <td>${r.actual_sales ? fmtWon(r.actual_sales) : '<span class=muted>-</span>'}</td>
+        <td class="cell-note">${linkify(r.note) || '<span class=muted>-</span>'}</td>
+        <td class="cell-note">${esc(r.followup) || '<span class=muted>-</span>'}</td>
+        <td class="row-actions"><button class="btn btn-secondary btn-sm edit-seller">수정</button></td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`;
+  el.querySelectorAll('.edit-seller').forEach(b => b.addEventListener('click', (e) => {
+    const id = e.target.closest('tr').dataset.id;
+    openSellerForm(SELLERS.find(s => String(s.id) === id));
+  }));
+}
+
+/* ---------------- Brand analysis ---------------- */
+function renderBrand(){
+  document.getElementById('btn-add').style.display = 'none';
+  const rows = applyFilters(SELLERS);
+  document.getElementById('f-count').textContent = `${rows.length} / ${SELLERS.length}건`;
+  const brands = uniqueSorted(rows.map(r=>r.brand));
+  const el = document.getElementById('content');
+  if (!brands.length){ el.innerHTML = `<div class="empty-state">데이터가 없어요.</div>`; return; }
+  const statuses = STATUS_OPTIONS;
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:20px;">
+      ${brands.map(b => { const mine = rows.filter(r=>r.brand===b); const conf = mine.filter(r=>r.status==='확정').length;
+        return `<div class="kpi-card"><div class="klabel">${brandBadge(b)}</div><div class="kval">${mine.length}<span style="font-size:12px;color:var(--text-dim);font-weight:500;"> 명</span></div><div class="ksub">확정 ${conf}건 · 전환율 ${mine.length?((conf/mine.length)*100).toFixed(1):'0.0'}%</div></div>`;
+      }).join('')}
+    </div>
+    <section class="block"><h2>브랜드 × 상태 현황</h2>
+      <table class="kpi"><thead><tr><th>브랜드</th>${statuses.map(s=>`<th>${s}</th>`).join('')}<th>합계</th></tr></thead>
+        <tbody>${brands.map(b => { const mine = rows.filter(r=>r.brand===b);
+          return `<tr><td class="cell-name">${brandBadge(b)}</td>${statuses.map(s=>`<td>${mine.filter(r=>r.status===s).length}</td>`).join('')}<td><b>${mine.length}</b></td></tr>`;
+        }).join('')}</tbody>
+      </table>
+    </section>`;
+}
+
+/* ---------------- Runner analysis ---------------- */
+const STAGES = ['콜드','응답','미팅','조건협의','확정'];
+function daysSince(dateStr){ if (!dateStr) return null; const d = new Date(dateStr+'T00:00:00'); if (isNaN(d)) return null; return Math.floor((new Date()-d)/86400000); }
+function renderRunner(){
+  document.getElementById('btn-add').style.display = 'none';
+  const pool = applyFilters(SELLERS).filter(r => r.status === '확정');
+  document.getElementById('f-count').textContent = `진행자 ${pool.length}명`;
+  const el = document.getElementById('content');
+  if (!pool.length){ selectedRunnerId = null; el.innerHTML = `<div class="empty-state">확정 상태인 진행자가 없어요.<br>필터를 확인해보세요.</div>`; return; }
+  if (!selectedRunnerId || !pool.some(p=>p.id===selectedRunnerId)) selectedRunnerId = pool[0].id;
+  const r = pool.find(p => p.id === selectedRunnerId);
+  const stageIdx = STAGES.indexOf(r.status);
+  const dropped = r.status === '탈락';
+  const sales = r.actual_sales || 0;
+  const dsince = daysSince(r.contact_date);
+  el.innerHTML = `
+    <div class="runner-picker">
+      <select class="runner-select" id="runner-select">${pool.map(p=>`<option value="${p.id}" ${p.id===selectedRunnerId?'selected':''}>${esc(p.seller_name)} · ${esc(p.status)}</option>`).join('')}</select>
+      <span class="runner-hint">확정 상태인 진행자만 목록에 표시돼요 (${pool.length}명)</span>
+    </div>
+    <div class="kpi-row" style="grid-template-columns:repeat(4,1fr);">
+      <div class="kpi-card hero"><div class="klabel">실제 매출</div><div class="kval">${fmtWon(sales)}</div><div class="ksub">${sales?'공구 완료 반영됨':'아직 미입력'}</div></div>
+      <div class="kpi-card"><div class="klabel">예상 공구 주차</div><div class="kval" style="font-size:16px;">${esc(r.expected_week)||'미정'}</div><div class="ksub">${brandBadge(r.brand)} · ${esc(r.category)||'-'}</div></div>
+      <div class="kpi-card"><div class="klabel">담당자 / 컨택자</div><div class="kval" style="font-size:16px;">${esc(r.owner)||'-'}</div><div class="ksub">최초 컨택 ${esc(r.contactor)||'-'}</div></div>
+      <div class="kpi-card"><div class="klabel">최초 접촉일</div><div class="kval" style="font-size:16px;">${esc(r.contact_date)||'-'}</div><div class="ksub">${dsince!=null?`D+${dsince}일 경과`:'-'}</div></div>
+    </div>
+    <div class="panel" style="margin-bottom:18px;">
+      <div class="phead"><h3>진행 단계</h3>${dropped?'<span class="st st-dropped">탈락 처리됨</span>':''}</div>
+      <div class="stage-track">${STAGES.map((s,i)=>`<div class="stage-step ${dropped?(i===0?'done':''):(i<stageIdx?'done':i===stageIdx?'current':'')}"><span class="sline"></span><span class="sdot">${i+1}</span><span class="slabel">${s}</span></div>`).join('')}</div>
+    </div>
+    <div class="grid2" style="grid-template-columns:1fr 1fr;">
+      <div class="panel"><div class="phead"><h3>진행 메모</h3><button class="btn btn-secondary btn-sm" id="runner-edit">수정</button></div>
+        <div class="note-list">
+          <div class="note-item"><span class="nic">📝</span><div><div class="ntitle">비고</div><div class="nbody">${linkify(r.note)||'작성된 메모가 없어요.'}</div></div></div>
+          <div class="note-item"><span class="nic">✅</span><div><div class="ntitle">후속업무</div><div class="nbody">${esc(r.followup)||'지정된 후속업무가 없어요.'}</div></div></div>
+        </div>
+      </div>
+      <div class="panel"><div class="phead"><h3>전체 진행자 매출 현황</h3></div><div id="runner-rank"></div></div>
+    </div>`;
+  document.getElementById('runner-select').addEventListener('change', e => { selectedRunnerId = e.target.value; renderRunner(); });
+  document.getElementById('runner-edit').addEventListener('click', () => openSellerForm(r));
+  const salesMap = {}; pool.forEach(p => { salesMap[p.seller_name] = p.actual_sales||0; });
+  const hasAny = Object.values(salesMap).some(v=>v>0);
+  if (hasAny) renderRankList('runner-rank', salesMap, true);
+  else {
+    const stageMap = {}; pool.forEach(p => { stageMap[p.seller_name] = STAGES.indexOf(p.status)>=0?STAGES.indexOf(p.status)+1:0; });
+    renderRankList('runner-rank', stageMap, false);
+    document.getElementById('runner-rank').insertAdjacentHTML('afterbegin', `<div class="runner-hint" style="margin-bottom:8px;">아직 입력된 매출이 없어 진행 단계 기준으로 보여드려요.</div>`);
+  }
+}
+
+/* ============================================================
+   담당자 KPI
+   ============================================================ */
+function renderKPI(){
+  document.getElementById('btn-add').style.display = 'none';
+  const rows = applyFilters(SELLERS);
+  document.getElementById('f-count').textContent = `${rows.length} / ${SELLERS.length}건 기준 집계`;
+  const owners = uniqueSorted(rows.map(r=>r.owner));
+  const stats = owners.map(o => {
+    const mine = rows.filter(r=>r.owner===o);
+    const contacted = mine.length;
+    const responded = mine.filter(r=>r.status!=='콜드').length;
+    const confirmed = mine.filter(r=>r.status==='확정').length;
+    const sales = mine.filter(r=>r.status==='확정').reduce((s,r)=>s+(r.actual_sales||0),0);
+    return { owner:o, contacted, responded, confirmed, respRate: contacted?responded/contacted:0, cvr: contacted?confirmed/contacted:0, sales };
+  }).sort((a,b)=>b.contacted-a.contacted);
+  const totalContacted = stats.reduce((s,x)=>s+x.contacted,0);
+  const totalResponded = stats.reduce((s,x)=>s+x.responded,0);
+  const totalConfirmed = stats.reduce((s,x)=>s+x.confirmed,0);
+  const totalSales = stats.reduce((s,x)=>s+x.sales,0);
+  const el = document.getElementById('content');
+  el.innerHTML = `
+    <div class="kpi-row" style="grid-template-columns:repeat(4,1fr);">
+      <div class="kpi-card hero"><div class="klabel">전체 접촉 수</div><div class="kval">${totalContacted}</div></div>
+      <div class="kpi-card"><div class="klabel">응답 이상 수</div><div class="kval">${totalResponded}</div></div>
+      <div class="kpi-card"><div class="klabel">확정 수</div><div class="kval green">${totalConfirmed}</div></div>
+      <div class="kpi-card"><div class="klabel">확정 매출 합계</div><div class="kval" style="font-size:18px;">${fmtWon(totalSales)}</div></div>
+    </div>
+    <section class="block"><h2>담당자별 누적 실적</h2>
+      <table class="kpi"><thead><tr><th>담당자</th><th>접촉 수</th><th>응답 이상 수</th><th>응답률</th><th>확정 수</th><th>확정 전환율</th><th>확정 매출 합계</th></tr></thead>
+        <tbody>
+          ${stats.map(s=>`<tr><td class="cell-name">${esc(s.owner)}</td><td>${s.contacted}</td><td>${s.responded}</td><td>${(s.respRate*100).toFixed(1)}%</td><td>${s.confirmed}</td><td>${(s.cvr*100).toFixed(1)}%</td><td>${fmtWon(s.sales)}</td></tr>`).join('')}
+          <tr class="total"><td>합계</td><td>${totalContacted}</td><td>${totalResponded}</td><td>${totalContacted?((totalResponded/totalContacted)*100).toFixed(1):'0.0'}%</td><td>${totalConfirmed}</td><td>${totalContacted?((totalConfirmed/totalContacted)*100).toFixed(1):'0.0'}%</td><td>${fmtWon(totalSales)}</td></tr>
+        </tbody>
+      </table>
+    </section>
+    <section class="block"><h2>담당자별 접촉 수 vs 확정 수</h2><div class="chart-wrap"><canvas id="chart-kpi"></canvas></div></section>
+  `;
+  destroyChart('kpi');
+  const ctx = document.getElementById('chart-kpi');
+  if (ctx && window.Chart){
+    charts.kpi = new Chart(ctx, { type:'bar',
+      data:{ labels: stats.map(s=>s.owner), datasets:[
+        { label:'접촉 수', data: stats.map(s=>s.contacted), backgroundColor:'#C7DED0' },
+        { label:'확정 수', data: stats.map(s=>s.confirmed), backgroundColor:'#3E6650' }
+      ]},
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom', labels:{boxWidth:10,font:{size:11}}}},
+        scales:{ x:{ticks:{font:{size:11}}}, y:{beginAtZero:true, ticks:{precision:0, font:{size:11}}} } } });
+  }
+}
+
+/* ============================================================
+   컨텐츠 협업 캠페인 (CRUD)
+   ============================================================ */
+function campaignFormFields(c){
+  c = c || {};
+  return field('title','캠페인명',{value:c.title, required:true, full:true}) +
+    field('owner','담당자',{value:c.owner}) +
+    field('target_view','목표 VIEW',{type:'number', value:c.target_view}) +
+    field('reach_view','도달 VIEW',{type:'number', value:c.reach_view}) +
+    field('achievement_rate','달성률',{value:c.achievement_rate, placeholder:'예: 45.5%'}) +
+    field('total_sales','총 매출',{value:c.total_sales}) +
+    field('upload_avg_sales','업로드일 평균 매출',{value:c.upload_avg_sales}) +
+    field('non_upload_avg_sales','비업로드일 평균',{value:c.non_upload_avg_sales}) +
+    field('upload_effect','업로드 효과',{value:c.upload_effect}) +
+    field('imc_cost','IMC 비용',{value:c.imc_cost});
+}
+function openCampaignForm(camp){
+  const isEdit = !!camp;
+  openModal(isEdit?'캠페인 정보 수정':'신규 캠페인 등록', campaignFormFields(camp), async (data) => {
+    const payload = { title:data.title, owner:data.owner||null,
+      target_view: data.target_view?Number(data.target_view):null, reach_view: data.reach_view?Number(data.reach_view):null,
+      achievement_rate: data.achievement_rate||null, total_sales: data.total_sales||null,
+      upload_avg_sales: data.upload_avg_sales||null, non_upload_avg_sales: data.non_upload_avg_sales||null,
+      upload_effect: data.upload_effect||null, imc_cost: data.imc_cost||null };
+    if (isEdit) await sbUpdate('campaigns', camp.id, payload);
+    else { const created = await sbInsert('campaigns', [payload]); selectedCampaignId = created[0].id; }
+    toast(isEdit?'캠페인을 수정했어요.':'신규 캠페인을 등록했어요.', 'ok');
+    await loadAll();
+  }, isEdit ? { onDelete: async () => { await sbDelete('campaigns', camp.id); toast('캠페인을 삭제했어요.'); selectedCampaignId=null; await loadAll(); } } : null);
+}
+function collaboratorFormFields(c){
+  c = c || {};
+  return field('channel','채널',{value:c.channel||'Instagram'}) +
+    field('handle','계정명',{value:c.handle, required:true}) +
+    field('category','구분',{value:c.category}) +
+    field('product','노출 제품',{value:c.product, full:true}) +
+    field('content_type','콘텐츠 유형',{value:c.content_type}) +
+    field('collab_type','협업 형태',{value:c.collab_type, placeholder:'MAIN/SUB'}) +
+    field('upload_date','업로드일',{value:c.upload_date}) +
+    field('views','조회수',{type:'number', value:c.views}) +
+    field('link','콘텐츠 링크',{value:c.link, full:true}) +
+    field('auto_dm','자동DM',{value:c.auto_dm}) +
+    field('status','섭외상태',{value:c.status}) +
+    field('comment','담당자 코멘트',{type:'textarea', value:c.comment, full:true}) +
+    field('note','비고',{value:c.note, full:true});
+}
+function openCollaboratorForm(campaignId, collab){
+  const isEdit = !!collab;
+  openModal(isEdit?'협업자 정보 수정':'협업자 추가', collaboratorFormFields(collab), async (data) => {
+    const payload = Object.assign({}, data, { views: data.views?Number(data.views):null, campaign_id: campaignId });
+    if (isEdit) await sbUpdate('campaign_collaborators', collab.id, payload);
+    else await sbInsert('campaign_collaborators', [payload]);
+    toast(isEdit?'협업자 정보를 수정했어요.':'협업자를 추가했어요.', 'ok');
+    await loadAll();
+  }, isEdit ? { onDelete: async () => { await sbDelete('campaign_collaborators', collab.id); toast('협업자를 삭제했어요.'); await loadAll(); } } : null);
+}
+
+function contentLinkOrText(v){
+  if (!v) return '-';
+  const e = esc(v);
+  if (/^https?:\/\//.test(v)) return `<a href="${v}" target="_blank" rel="noopener">${e.length>28?e.slice(0,28)+'…':e}</a>`;
+  return e;
+}
+function renderContent(){
+  const btn = document.getElementById('btn-add');
+  btn.style.display = 'inline-flex';
+  btn.onclick = () => openCampaignForm(null);
+  document.getElementById('f-count').textContent = '';
+  const el = document.getElementById('content');
+  if (!CAMPAIGNS.length){ el.innerHTML = `<div class="empty-state">등록된 컨텐츠 협업 캠페인이 없어요.<br>상단 '＋ 신규 등록'으로 추가해보세요.</div>`; return; }
+  if (!selectedCampaignId || !CAMPAIGNS.some(c=>c.id===selectedCampaignId)) selectedCampaignId = CAMPAIGNS[0].id;
+  const c = CAMPAIGNS.find(x => x.id === selectedCampaignId);
+  const collabs = c.campaign_collaborators || [];
+  const totalCollabs = CAMPAIGNS.reduce((s,x)=>s+(x.campaign_collaborators||[]).length, 0);
+  const kpiFields = [['목표 VIEW',c.target_view],['도달 VIEW',c.reach_view],['달성률',c.achievement_rate],['총 매출',c.total_sales],['업로드 효과',c.upload_effect]].filter(([,v])=>v!=null && v!=='');
+  const kpiHtml = kpiFields.length
+    ? `<div class="kpi-row" style="grid-template-columns:repeat(${Math.min(kpiFields.length,5)},1fr);">${kpiFields.map(([k,v],i)=>`<div class="kpi-card ${i===0?'hero':''}"><div class="klabel">${k}</div><div class="kval" style="font-size:${String(v).length>10?'16px':'20px'};">${esc(typeof v==='number'?v.toLocaleString('ko-KR'):v)}</div></div>`).join('')}</div>`
+    : `<div class="content-empty-kpi">이 캠페인은 아직 성과 요약이 입력되지 않았어요. '캠페인 수정'에서 입력할 수 있어요.</div>`;
+  el.innerHTML = `
+    <div class="runner-picker">
+      <label>캠페인 선택</label>
+      <select id="content-select" class="runner-select">${CAMPAIGNS.map(camp=>`<option value="${camp.id}" ${camp.id===selectedCampaignId?'selected':''}>${esc(camp.title)} (${esc(camp.owner)||'담당자 미상'})</option>`).join('')}</select>
+      <button class="btn btn-secondary btn-sm" id="campaign-edit">캠페인 수정</button>
+      <span class="runner-hint">총 ${CAMPAIGNS.length}개 캠페인 · 협업 ${totalCollabs}건</span>
+    </div>
+    <div class="content-meta">담당자: <b>${esc(c.owner)||'-'}</b></div>
+    <div style="height:14px;"></div>
+    ${kpiHtml}
+    <section class="block" style="margin-top:16px;">
+      <h2>협업 리스트 (${collabs.length}건) <button class="btn btn-primary btn-sm" id="add-collab">＋ 협업자 추가</button></h2>
+      ${collabs.length ? `<div style="overflow-x:auto;"><table class="data"><thead><tr>
+        <th>채널</th><th>계정명</th><th>구분/노출제품</th><th>콘텐츠 유형</th><th>협업 형태</th><th>업로드일</th><th>조회수</th><th>섭외상태</th><th>담당자 코멘트</th><th></th>
+      </tr></thead><tbody>
+        ${collabs.map(r => `<tr data-id="${r.id}">
+          <td>${esc(r.channel)||'-'}</td><td>${contentLinkOrText(r.handle)}</td>
+          <td>${[r.category,r.product].filter(Boolean).map(esc).join(' · ')||'-'}</td>
+          <td>${esc(r.content_type)||'-'}</td><td>${esc(r.collab_type)||'-'}</td><td>${esc(r.upload_date)||'-'}</td>
+          <td>${r.views ?? '-'}</td><td>${esc(r.status||r.auto_dm)||'-'}</td>
+          <td style="max-width:260px;">${esc(r.comment)||'-'}</td>
+          <td><button class="btn btn-secondary btn-sm edit-collab">수정</button></td>
+        </tr>`).join('')}
+      </tbody></table></div>` : `<div class="empty-state">이 캠페인은 아직 협업자 데이터가 없어요.</div>`}
+    </section>`;
+  document.getElementById('content-select').addEventListener('change', e => { selectedCampaignId = e.target.value; renderContent(); });
+  document.getElementById('campaign-edit').addEventListener('click', () => openCampaignForm(c));
+  document.getElementById('add-collab').addEventListener('click', () => openCollaboratorForm(c.id, null));
+  el.querySelectorAll('.edit-collab').forEach(b => b.addEventListener('click', e => {
+    const id = e.target.closest('tr').dataset.id;
+    openCollaboratorForm(c.id, collabs.find(x => String(x.id) === id));
+  }));
+}
+
+/* ============================================================
+   공동구매 캘린더 (CRUD)
+   ============================================================ */
+function dateFromYMD(s){ const [y,m,d] = s.split('-').map(Number); return new Date(y,m-1,d); }
+function localYMD(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function daysBetween(a,b){ return Math.round((b.getTime()-a.getTime())/86400000); }
+
+function calendarFormFields(ev){
+  ev = ev || {};
+  let endInclusive = ev.end_date;
+  if (ev.end_date){ const d = dateFromYMD(ev.end_date); d.setDate(d.getDate()-1); endInclusive = localYMD(d); }
+  return field('title','일정 제목',{value:ev.title, required:true, full:true, placeholder:'예: [개인] 홍길동(@handle) 1차'}) +
+    field('start_date','시작일',{type:'date', value:ev.start_date, required:true}) +
+    field('end_date_inclusive','종료일 (포함)',{type:'date', value:endInclusive, required:true}) +
+    field('description','설명',{type:'textarea', value:ev.description, full:true}) +
+    field('source_link','참고 링크',{value:ev.source_link, full:true});
+}
+function openCalendarForm(ev){
+  const isEdit = !!ev;
+  openModal(isEdit?'일정 수정':'신규 일정 등록', calendarFormFields(ev), async (data) => {
+    const endEx = dateFromYMD(data.end_date_inclusive); endEx.setDate(endEx.getDate()+1);
+    const payload = { title:data.title, start_date:data.start_date, end_date: localYMD(endEx),
+      description:data.description||null, source_link:data.source_link||null };
+    if (isEdit) await sbUpdate('market_calendar_events', ev.id, payload);
+    else await sbInsert('market_calendar_events', [payload]);
+    toast(isEdit?'일정을 수정했어요.':'신규 일정을 등록했어요.', 'ok');
+    await loadAll();
+  }, isEdit ? { onDelete: async () => { await sbDelete('market_calendar_events', ev.id); toast('일정을 삭제했어요.'); await loadAll(); } } : null);
+}
+
+function pickDefaultMonth(events){
+  const today = new Date();
+  const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const nextMonthStart = new Date(today.getFullYear(), today.getMonth()+1, 1);
+  const hasThisMonth = events.some(e => dateFromYMD(e.start_date) < nextMonthStart && dateFromYMD(e.end_date) > thisMonthStart);
+  if (hasThisMonth || !events.length) return thisMonthStart;
+  const future = events.filter(e => dateFromYMD(e.start_date) >= thisMonthStart);
+  const pick = future.length ? future[0] : events[0];
+  const d = dateFromYMD(pick.start_date);
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+function layoutWeek(weekStart, events){
+  const weekEndEx = new Date(weekStart); weekEndEx.setDate(weekEndEx.getDate()+7);
+  const items = events.map((e,idx) => ({ e, idx, s: dateFromYMD(e.start_date), en: dateFromYMD(e.end_date) }))
+    .filter(x => x.s < weekEndEx && x.en > weekStart)
+    .map(x => { const colStart = Math.max(0, daysBetween(weekStart, x.s)); const colEndEx = Math.min(7, daysBetween(weekStart, x.en));
+      return { ...x, colStart, colEnd: colEndEx-1, roundL: x.s >= weekStart, roundR: x.en <= weekEndEx }; })
+    .sort((a,b) => a.colStart-b.colStart || (b.colEnd-b.colStart)-(a.colEnd-a.colStart));
+  const laneEnds = [];
+  items.forEach(it => { let lane = laneEnds.findIndex(end => end < it.colStart); if (lane===-1){ lane = laneEnds.length; laneEnds.push(it.colEnd); } else laneEnds[lane]=it.colEnd; it.lane = lane; });
+  return { items, laneCount: laneEnds.length };
+}
+let calEscHandler = null;
+function closeCalPopover(){
+  const bd = document.getElementById('cal-popover-backdrop'); if (bd) bd.remove();
+  const pop = document.querySelector('.cal-popover'); if (pop) pop.remove();
+  if (calEscHandler){ document.removeEventListener('keydown', calEscHandler); calEscHandler=null; }
+}
+function showEventPopover(ev, rect){
+  closeCalPopover();
+  const rangeEndIncl = dateFromYMD(ev.end_date); rangeEndIncl.setDate(rangeEndIncl.getDate()-1);
+  const backdrop = document.createElement('div'); backdrop.id='cal-popover-backdrop'; backdrop.className='cal-popover-backdrop';
+  backdrop.addEventListener('click', closeCalPopover);
+  const pop = document.createElement('div'); pop.className='cal-popover';
+  pop.innerHTML = `
+    <button class="cal-popover-close" aria-label="닫기">✕</button>
+    <h3>${esc(ev.title)}</h3>
+    <div class="cal-detail-range">📅 ${ev.start_date} ~ ${localYMD(rangeEndIncl)}</div>
+    <div class="cal-detail-desc">${ev.description?esc(ev.description):'(설명 없음)'}</div>
+    <div class="cal-detail-actions">
+      <button class="btn btn-secondary btn-sm" id="pop-edit">수정</button>
+      ${ev.source_link?`<a class="btn btn-secondary btn-sm" href="${ev.source_link}" target="_blank" rel="noopener">원본 링크 ↗</a>`:''}
+    </div>`;
+  pop.addEventListener('click', e => e.stopPropagation());
+  document.body.appendChild(backdrop); document.body.appendChild(pop);
+  const popWidth = 300, estH = pop.offsetHeight || 220;
+  let left = rect.left, top = rect.bottom+6;
+  if (left+popWidth > window.innerWidth-12) left = window.innerWidth-popWidth-12;
+  if (left < 8) left = 8;
+  if (top+estH > window.innerHeight-12) top = rect.top-estH-6;
+  if (top < 8) top = 8;
+  pop.style.left = left+'px'; pop.style.top = top+'px';
+  document.getElementById('pop-edit').addEventListener('click', () => { closeCalPopover(); openCalendarForm(ev); });
+  calEscHandler = e => { if (e.key==='Escape') closeCalPopover(); };
+  document.addEventListener('keydown', calEscHandler);
+}
+function renderCalendar(){
+  const btn = document.getElementById('btn-add');
+  btn.style.display = 'inline-flex';
+  btn.onclick = () => openCalendarForm(null);
+  document.getElementById('f-count').textContent = `${CAL_EVENTS.length}건`;
+  if (!calMonthCursor) calMonthCursor = pickDefaultMonth(CAL_EVENTS);
+  paintCalendar();
+}
+function paintCalendar(){
+  closeCalPopover();
+  const el = document.getElementById('content');
+  const year = calMonthCursor.getFullYear(), month = calMonthCursor.getMonth();
+  const todayStr = localYMD(new Date());
+  const firstOfMonth = new Date(year, month, 1);
+  const startOffset = firstOfMonth.getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const totalCells = Math.ceil((startOffset+daysInMonth)/7)*7;
+  const numWeeks = totalCells/7;
+  const firstCellDate = new Date(year, month, 1-startOffset);
+  const dow = ['일','월','화','수','목','금','토'];
+  const BAR_H=21, BAR_GAP=3, HEADER_H=24;
+  let weeksHtml = '';
+  for (let w=0; w<numWeeks; w++){
+    const weekStart = new Date(firstCellDate); weekStart.setDate(firstCellDate.getDate()+w*7);
+    const dayDates = []; for (let d=0; d<7; d++){ const cd = new Date(weekStart); cd.setDate(weekStart.getDate()+d); dayDates.push(cd); }
+    const { items, laneCount } = layoutWeek(weekStart, CAL_EVENTS);
+    const weekMinHeight = HEADER_H + Math.max(laneCount,1)*(BAR_H+BAR_GAP) + 6;
+    const daysHtml = dayDates.map(cd => { const inMonth = cd.getMonth()===month; const ymd = localYMD(cd);
+      return `<div class="cal-daycell ${inMonth?'':'other-month'}" style="min-height:${weekMinHeight}px;"><span class="cal-daynum ${ymd===todayStr?'is-today':''}">${cd.getDate()}</span></div>`; }).join('');
+    const barsHtml = items.map(it => { const leftPct=(it.colStart/7*100); const widthPct=((it.colEnd-it.colStart+1)/7*100); const top=it.lane*(BAR_H+BAR_GAP);
+      const cls=[it.roundL?'round-l':'', it.roundR?'round-r':''].join(' ');
+      return `<div class="cal-bar ${cls}" style="left:${leftPct}%;width:${widthPct}%;top:${top}px;" data-idx="${it.idx}" title="${esc(it.e.title)}">${esc(it.e.title)}</div>`; }).join('');
+    weeksHtml += `<div class="cal-week"><div class="cal-week-days">${daysHtml}</div><div class="cal-week-bars">${barsHtml}</div></div>`;
+  }
+  el.innerHTML = `
+    <div class="cal-toolbar">
+      <div class="cal-nav">
+        <button class="cal-nav-btn" id="cal-prev">‹</button><span class="cal-month-label">${year}년 ${month+1}월</span>
+        <button class="cal-nav-btn" id="cal-next">›</button><button class="cal-today-btn" id="cal-today">오늘</button>
+      </div>
+      <div class="cal-legend"><span class="cal-legend-dot"></span> 공동구매 캘린더 · 클릭하면 상세정보가 보여요</div>
+    </div>
+    <div class="cal-grid-wrap"><div class="cal-dow">${dow.map(d=>`<div>${d}</div>`).join('')}</div><div class="cal-weeks">${weeksHtml}</div></div>
+    ${!CAL_EVENTS.length?'<div class="cal-note">등록된 일정이 없어요. 상단 \'＋ 신규 등록\'으로 추가해보세요.</div>':''}
+  `;
+  document.getElementById('cal-prev').addEventListener('click', () => { calMonthCursor = new Date(year, month-1, 1); paintCalendar(); });
+  document.getElementById('cal-next').addEventListener('click', () => { calMonthCursor = new Date(year, month+1, 1); paintCalendar(); });
+  document.getElementById('cal-today').addEventListener('click', () => { const t = new Date(); calMonthCursor = new Date(t.getFullYear(), t.getMonth(), 1); paintCalendar(); });
+  el.querySelectorAll('.cal-bar').forEach(bar => bar.addEventListener('click', () => { const ev = CAL_EVENTS[parseInt(bar.dataset.idx)]; if (ev) showEventPopover(ev, bar.getBoundingClientRect()); }));
+}
+
+/* ============================================================
+   Raw 데이터
+   ============================================================ */
+const RAW_TABLES = {
+  sellers: { label:'셀러 (sellers)', cols:['id','seller_name','brand','category','contactor','owner','contact_date','status','followers','expected_week','actual_sales','note','followup'] },
+  campaigns: { label:'캠페인 (campaigns)', cols:['id','title','owner','target_view','reach_view','achievement_rate','total_sales','upload_avg_sales','non_upload_avg_sales','upload_effect','imc_cost'] },
+  campaign_collaborators: { label:'협업자 (campaign_collaborators)', cols:['id','campaign_id','channel','handle','category','product','content_type','collab_type','upload_date','views','link','auto_dm','status','comment','note'] },
+  market_calendar_events: { label:'캘린더 (market_calendar_events)', cols:['id','title','start_date','end_date','description','source_link'] },
+};
+function rawRows(){
+  if (rawTable === 'sellers') return SELLERS;
+  if (rawTable === 'campaigns') return CAMPAIGNS.map(({campaign_collaborators, ...rest}) => rest);
+  if (rawTable === 'campaign_collaborators') return CAMPAIGNS.flatMap(c => c.campaign_collaborators||[]);
+  if (rawTable === 'market_calendar_events') return CAL_EVENTS;
+  return [];
+}
+function renderRaw(){
+  document.getElementById('btn-add').style.display = 'none';
+  document.getElementById('f-count').textContent = '';
+  const rows = rawRows();
+  const cols = RAW_TABLES[rawTable].cols;
+  const el = document.getElementById('content');
+  el.innerHTML = `
+    <div class="raw-tabs">${Object.keys(RAW_TABLES).map(k => `<div class="raw-tab ${k===rawTable?'active':''}" data-t="${k}">${RAW_TABLES[k].label} (${k==='sellers'?SELLERS.length:k==='campaigns'?CAMPAIGNS.length:k==='campaign_collaborators'?CAMPAIGNS.flatMap(c=>c.campaign_collaborators||[]).length:CAL_EVENTS.length})</div>`).join('')}</div>
+    <div class="raw-scroll">
+      <table class="raw"><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead>
+      <tbody>${rows.length ? rows.map(r => `<tr>${cols.map(c => `<td title="${esc(r[c])}">${r[c]==null?'':esc(r[c])}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${cols.length}" style="text-align:center;color:var(--text-dim);padding:24px;">데이터 없음</td></tr>`}</tbody>
+      </table>
+    </div>`;
+  el.querySelectorAll('.raw-tab').forEach(t => t.addEventListener('click', () => { rawTable = t.dataset.t; renderRaw(); }));
+}
+
+/* ============================================================
+   뷰 전환 / 필터 / 부트스트랩
+   ============================================================ */
+const VIEWS = {
+  overview: { title:'대시보드', sub:'인플루언서 공구 현황을 한눈에 확인하세요.', render: renderOverview, showFilterbar:true },
+  list: { title:'인플루언서 관리', sub:'셀러 컨택 현황을 확인·등록·수정하세요.', render: renderList, showFilterbar:true },
+  runner: { title:'진행자별 분석', sub:'확정된 셀러를 한 명씩 선택해 진행 단계와 매출을 확인하세요.', render: renderRunner, showFilterbar:true },
+  brand: { title:'브랜드별 분석', sub:'브랜드별 셀러 현황과 상태 분포를 확인하세요.', render: renderBrand, showFilterbar:true },
+  content: { title:'컨텐츠 협업 캠페인', sub:'마켓 진행자와는 별도로 진행된 콘텐츠 협업 캠페인을 관리하세요.', render: renderContent, showFilterbar:false },
+  calendar: { title:'공동구매 캘린더', sub:'공동구매 일정을 달력으로 확인·등록·수정하세요.', render: renderCalendar, showFilterbar:false },
+  kpi: { title:'담당자 KPI', sub:'담당자별 접촉·응답·확정 실적을 집계합니다 (필터 적용됨).', render: renderKPI, showFilterbar:true },
+  raw: { title:'Raw 데이터', sub:'Supabase 각 테이블의 원본 데이터를 그대로 확인해요.', render: renderRaw, showFilterbar:false },
+};
+
+function switchView(v){
+  if (!VIEWS[v]) return;
+  currentView = v;
+  document.querySelectorAll('.nav-item[data-view]').forEach(n => n.classList.toggle('active', n.dataset.view===v));
+  document.getElementById('page-title').textContent = VIEWS[v].title;
+  document.getElementById('page-sub').textContent = VIEWS[v].sub;
+  document.getElementById('filterbar').style.display = VIEWS[v].showFilterbar ? 'flex' : 'none';
+  VIEWS[v].render();
+}
+function wireFilters(){
+  document.getElementById('f-brand').addEventListener('change', e => { filters.brand=e.target.value; VIEWS[currentView].render(); });
+  document.getElementById('f-category').addEventListener('change', e => { filters.category=e.target.value; VIEWS[currentView].render(); });
+  document.getElementById('f-status').addEventListener('change', e => { filters.status=e.target.value; VIEWS[currentView].render(); });
+  document.getElementById('f-owner').addEventListener('change', e => { filters.owner=e.target.value; VIEWS[currentView].render(); });
+  document.getElementById('f-search').addEventListener('input', e => { filters.search=e.target.value; VIEWS[currentView].render(); });
+  document.getElementById('f-reset').addEventListener('click', () => { filters={brand:'',category:'',status:'',owner:'',search:''}; document.getElementById('f-search').value=''; populateFilterOptions(); VIEWS[currentView].render(); });
+  document.getElementById('btn-refresh').addEventListener('click', loadAll);
+}
+
+renderNav();
+document.querySelector('.nav-item[data-view="overview"]').classList.add('active');
+wireFilters();
+loadAll();
+</script>
+</body>
+</html>
