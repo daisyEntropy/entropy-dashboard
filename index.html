@@ -305,7 +305,7 @@
   .raw-scroll { overflow:auto; max-height:calc(100vh - 260px); border-radius:10px; }
 
   ::-webkit-scrollbar { width:9px; height:9px; }
-  ::-webkit-scrollbar-thumb { background:#d8d8dc; border-radius:6px; }
+  ::-webkit-scrollbar-thumb { background:#d8d8dc; border-radius:6px; }.hamburger-btn{display:none;background:#fff;border:1px solid var(--border);border-radius:8px;width:34px;height:34px;font-size:16px;cursor:pointer;color:var(--text);flex-shrink:0;}#sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1999;}@media (max-width:860px){.hamburger-btn{display:inline-flex;align-items:center;justify-content:center;}#sidebar{position:fixed;top:0;left:0;bottom:0;z-index:2000;transform:translateX(-100%);transition:transform .22s ease;box-shadow:0 0 30px rgba(0,0,0,.3);}#sidebar.open{transform:translateX(0);}#sidebar-backdrop.show{display:block;}#topbar{flex-wrap:wrap;padding:14px 16px 10px;}#topbar h1{font-size:16px;}#filterbar{padding:10px 16px;}#filterbar select,#filterbar input[type=text]{flex:1 1 45%;min-width:120px;}#content{padding:14px 16px 30px;}.kpi-row{grid-template-columns:repeat(2,1fr) !important;}.form-grid{grid-template-columns:1fr;}.modal-box{padding:18px 16px 16px;width:100%;}.runner-select{min-width:0;width:100%;}.cal-bar{font-size:9.5px;}}@media (max-width:420px){.kpi-row{grid-template-columns:1fr !important;}}
 </style>
 </head>
 <body>
@@ -341,8 +341,8 @@
     </div>
   </div>
 
-  <div id="main">
-    <div id="topbar">
+  <div id="sidebar-backdrop"></div><div id="main">
+    <div id="topbar"><button class="hamburger-btn" id="btn-hamburger" aria-label="메뉴 열기">☰</button>
       <div>
         <h1 id="page-title">대시보드</h1>
         <div class="sub" id="page-sub">인플루언서 공구 현황을 한눈에 확인하세요.</div>
@@ -433,7 +433,7 @@ function renderNav(){
       ${g.items.map(it => `<div class="nav-item" data-view="${it.key}"><span class="ic">${it.ic}</span>${it.label}</div>`).join('')}
     </div>
   `).join('');
-  el.querySelectorAll('.nav-item[data-view]').forEach(n => n.addEventListener('click', () => switchView(n.dataset.view)));
+  el.querySelectorAll('.nav-item[data-view]').forEach(n => n.addEventListener('click', () => { switchView(n.dataset.view); const sb=document.getElementById('sidebar'); const bd=document.getElementById('sidebar-backdrop'); if(sb)sb.classList.remove('open'); if(bd)bd.classList.remove('show'); }));
 }
 
 /* ============================================================
@@ -1189,7 +1189,7 @@ function wireFilters(){
   document.getElementById('btn-refresh').addEventListener('click', loadAll);
 }
 
-window.initApp = function(){
+function wireMobileNav(){const sidebar=document.getElementById('sidebar');const backdrop=document.getElementById('sidebar-backdrop');const btn=document.getElementById('btn-hamburger');if(!btn||!sidebar||!backdrop)return;btn.addEventListener('click',()=>{sidebar.classList.add('open');backdrop.classList.add('show');});backdrop.addEventListener('click',()=>{sidebar.classList.remove('open');backdrop.classList.remove('show');});}window.initApp = function(){wireMobileNav();
   renderNav();
   document.querySelector('.nav-item[data-view="overview"]').classList.add('active');
   wireFilters();
