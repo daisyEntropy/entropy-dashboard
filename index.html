@@ -31,8 +31,7 @@
     --status-meeting-bg: #dfeeff; --status-meeting-fg: #1a5aa8;
     --status-nego-bg: #ffe9d6; --status-nego-fg: #a35a12;
     --status-confirmed-bg: #dff5e3; --status-confirmed-fg: #1e8f4e;
-    --status-dropped-bg: #fbe1e4; --status-dropped-fg: #b23a4a;
-  }
+      --status-dropped-bg: #fbe1e4; --status-dropped-fg: #b23a4a; --status-gifted-bg: #ece1fb; --status-gifted-fg: #6b3fa0;  }
   * { box-sizing: border-box; }
   html, body { margin:0; padding:0; background: var(--bg); color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Noto Sans KR", "Malgun Gothic", sans-serif;
@@ -188,8 +187,8 @@
   .st-meeting { background:var(--status-meeting-bg); color:var(--status-meeting-fg); }
   .st-nego { background:var(--status-nego-bg); color:var(--status-nego-fg); }
   .st-confirmed { background:var(--status-confirmed-bg); color:var(--status-confirmed-fg); }
-  .st-dropped { background:var(--status-dropped-bg); color:var(--status-dropped-fg); }
-
+      .st-dropped { background:var(--status-dropped-bg); color:var(--status-dropped-fg); }
+        .st-gifted { background:var(--status-gifted-bg); color:var(--status-gifted-fg); }
   section.block { margin-bottom:22px; }
   section.block h2 { font-size:14px; margin:0 0 10px; display:flex; align-items:center; gap:10px; }
 
@@ -459,8 +458,7 @@ function brandBadge(b){
   if (b.includes('모란디')) return `<span class="badge badge-morandi">${esc(b)}</span>`;
   return `<span class="badge badge-plain">${esc(b)}</span>`;
 }
-const STATUS_MAP = { '콜드':'st-cold','응답':'st-response','미팅':'st-meeting','조건협의':'st-nego','확정':'st-confirmed','드랍':'st-dropped' };
-function statusBadge(s){ return `<span class="st ${STATUS_MAP[s]||'st-cold'}">${esc(s)||'-'}</span>`; }
+const STATUS_MAP = { '콜드':'st-cold','응답':'st-response','미팅':'st-meeting','조건협의':'st-nego','확정':'st-confirmed','드랍':'st-dropped','선물완료':'st-gifted' };function statusBadge(s){ return `<span class="st ${STATUS_MAP[s]||'st-cold'}">${esc(s)||'-'}</span>`; }
 function fmtWon(n){ return (n||0).toLocaleString('ko-KR') + '원'; }
 function uniqueSorted(arr){ return [...new Set(arr.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko')); }
 function destroyChart(key){ if (charts[key]){ charts[key].destroy(); delete charts[key]; } }
@@ -567,8 +565,7 @@ async function loadAll(){
 function populateFilterOptions(){
   const brands = uniqueSorted(SELLERS.map(r=>r.brand));
   const cats = uniqueSorted(SELLERS.map(r=>r.category));
-  const statuses = ['콜드','응답','미팅','조건협의','확정','드랍'].filter(s => SELLERS.some(r=>r.status===s));
-  const owners = uniqueSorted(SELLERS.map(r=>r.owner));
+    const statuses = ['콜드','응답','미팅','조건협의','확정','드랍','선물완료'].filter(s => SELLERS.some(r=>r.status===s));  const owners = uniqueSorted(SELLERS.map(r=>r.owner));
   const fill = (sel, vals, cur) => { sel.innerHTML = '<option value="">전체</option>' + vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join(''); sel.value = cur; };
   fill(document.getElementById('f-brand'), brands, filters.brand);
   fill(document.getElementById('f-category'), cats, filters.category);
@@ -589,8 +586,7 @@ function applyFilters(rows){
 /* ============================================================
    셀러 등록/수정 폼
    ============================================================ */
-const STATUS_OPTIONS = ['콜드','응답','미팅','조건협의','확정','드랍'];
-function sellerFormFields(s){
+const STATUS_OPTIONS = ['콜드','응답','미팅','조건협의','확정','드랍','선물완료'];function sellerFormFields(s){
   s = s || {};
   return field('seller_name','셀러명(인스타핸들)',{value:s.seller_name, required:true, full:true}) +
     field('brand','브랜드',{value:s.brand}) +
