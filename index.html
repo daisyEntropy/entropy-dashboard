@@ -703,6 +703,7 @@ function renderRankList(elId, countMap, isWon, emptyLabel){
   const max = Math.max(...keys.map(k=>countMap[k]));
   el.innerHTML = keys.map(k => `<div class="rank-row"><span class="rname">${esc(k)}</span><span class="rbar-track"><span class="rbar-fill" style="width:${max?(countMap[k]/max*100):0}%"></span></span><span class="rval">${isWon?fmtWon(countMap[k]):countMap[k]+'건'}</span></div>`).join('');
 }
+  function renderRunnerRank(elId, pool, countMap, isWon){ const el = document.getElementById(elId); const keys = Object.keys(countMap).sort((a,b)=>countMap[b]-countMap[a]); if (!keys.length){ el.innerHTML = `<div class="empty-state" style="padding:20px 0;">데이터 없음</div>`; return; } const max = Math.max(...keys.map(k=>countMap[k])); el.innerHTML = keys.map(k => { const p = pool.find(x=>x.seller_name===k); return `<div class="rank-row"><span class="rname">${esc(k)} ${p?brandBadge(p.brand):''}</span><span class="rbar-track"><span class="rbar-fill" style="width:${max?(countMap[k]/max*100):0}%;"></span></span><span class="rval">${isWon?fmtWon(countMap[k]):countMap[k]+'건'}</span></div>`; }).join(''); }
 
 /* ============================================================
    인플루언서 관리 (CRUD)
@@ -786,8 +787,7 @@ function renderRunner(){
   const dsince = daysSince(r.contact_date);
   el.innerHTML = `
     <div class="runner-picker">
-      <select class="runner-select" id="runner-select">${pool.map(p=>`<option value="${p.id}" ${p.id===selectedRunnerId?'selected':''}>${esc(p.seller_name)} · ${esc(p.status)}</option>`).join('')}</select>
-      <span class="runner-hint">확정 상태인 진행자만 목록에 표시돼요 (${pool.length}명)</span>
+      <select class="runner-select" id="runner-select">${pool.map(p=>`<option value="${p.id}" ${p.id===selectedRunnerId?'selected':''}>${esc(p.seller_name)} · ${esc(p.status)} · ${esc(p.brand||'-')}</option>`).join('')}</select>      <span class="runner-hint">확정 상태인 진행자만 목록에 표시돼요 (${pool.length}명)</span>
     </div>
     <div class="kpi-row" style="grid-template-columns:repeat(4,1fr);">
       <div class="kpi-card hero"><div class="klabel">실제 매출</div><div class="kval">${fmtWon(sales)}</div><div class="ksub">${sales?'공구 완료 반영됨':'아직 미입력'}</div></div>
@@ -812,11 +812,9 @@ function renderRunner(){
   document.getElementById('runner-edit').addEventListener('click', () => openSellerForm(r));
   const salesMap = {}; pool.forEach(p => { salesMap[p.seller_name] = p.actual_sales||0; });
   const hasAny = Object.values(salesMap).some(v=>v>0);
-  if (hasAny) renderRankList('runner-rank', salesMap, true);
-  else {
+    if (hasAny) renderRunnerRank('runner-rank', pool, salesMap, true);  else {
     const stageMap = {}; pool.forEach(p => { stageMap[p.seller_name] = STAGES.indexOf(p.status)>=0?STAGES.indexOf(p.status)+1:0; });
-    renderRankList('runner-rank', stageMap, false);
-    document.getElementById('runner-rank').insertAdjacentHTML('afterbegin', `<div class="runner-hint" style="margin-bottom:8px;">아직 입력된 매출이 없어 진행 단계 기준으로 보여드려요.</div>`);
+    renderRunnerRank('runner-rank', pool, stageMap, false);    document.getElementById('runner-rank').insertAdjacentHTML('afterbegin', `<div class="runner-hint" style="margin-bottom:8px;">아직 입력된 매출이 없어 진행 단계 기준으로 보여드려요.</div>`);
   }
 }
 
