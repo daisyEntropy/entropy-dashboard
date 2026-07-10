@@ -1183,7 +1183,7 @@ function wireMobileNav(){const sidebar=document.getElementById('sidebar');const 
   renderNav();
   document.querySelector('.nav-item[data-view="overview"]').classList.add('active');
   wireFilters();
-  loadAll(); (function(){ function trySub(){ if (window.supa) { window.supa.channel('market-calendar-changes').on('postgres_changes', { event:'*', schema:'public', table:'market_calendar_events' }, function(){ if (typeof loadAll==='function') loadAll(); }).subscribe(); } else { setTimeout(trySub, 300); } } trySub(); })();
+  loadAll(); (function(){ function trySub(){ if (window.supa) { window.supa.channel('market-calendar-changes').on('postgres_changes', { event:'*', schema:'public', table:'market_calendar_events' }, function(){ if (typeof loadAll==='function') loadAll(); }).subscribe(); } else { setTimeout(trySub, 300); } } trySub(); })(); setInterval(function(){ if (typeof currentView!=='undefined' && currentView==='calendar' && typeof loadAll==='function') loadAll(); }, 30000);
 };
 </script>
 
