@@ -659,7 +659,7 @@ function getCampaignDate(title){ const m = (title||'').match(/^(\d{2})\.(\d{1,2}
       <div class="kpi-card"><div class="klabel">응답률 (비-콜드)</div><div class="kval">${(respRate*100).toFixed(1)}%</div><div class="progress-track"><div class="progress-fill" style="width:${(respRate*100).toFixed(1)}%"></div></div></div>
     </div>
     <div class="grid2">
-      <div class="panel"><div class="phead"><h3>주차별 신규 컨택 추이</h3><span class="lnk" data-goto="list">인플루언서 관리 →</span></div><div class="chart-box"><canvas id="chart-trend"></canvas></div></div>
+            <div class="panel"><div class="phead"><h3 id="trend-title">당월 확정 인플루언서 · 주차별</h3><span class="lnk" data-goto="list">인플루언서 관리 →</span></div><div class="chart-box"><canvas id="chart-trend"></canvas></div></div>
       <div class="panel"><div class="phead"><h3>카테고리별 비중</h3><span class="lnk" data-goto="brand">브랜드별 분석 →</span></div>
         <div class="donut-wrap"><div class="chart-box"><canvas id="chart-cat"></canvas></div><div class="legend-list" id="cat-legend"></div></div>
       </div>
@@ -671,19 +671,7 @@ function getCampaignDate(title){ const m = (title||'').match(/^(\d{2})\.(\d{1,2}
   `;
   el.querySelectorAll('[data-goto]').forEach(n => n.addEventListener('click', () => switchView(n.dataset.goto)));
 
-  const weekMap = {};
-  rows.forEach(r => { const mon = mondayOf(r.contact_date); if (!mon) return; const k = mon.getTime(); weekMap[k]=(weekMap[k]||0)+1; });
-  const weekKeys = Object.keys(weekMap).map(Number).sort((a,b)=>a-b);
-  destroyChart('trend');
-  const tctx = document.getElementById('chart-trend');
-  if (tctx && window.Chart){
-    charts.trend = new Chart(tctx, { type:'line',
-      data:{ labels: weekKeys.length?weekKeys.map(k=>fmtMD(new Date(k))+'주'):['데이터 없음'],
-        datasets:[{ label:'신규 컨택', data: weekKeys.length?weekKeys.map(k=>weekMap[k]):[0],
-          borderColor:'#3E6650', backgroundColor:'rgba(62,102,80,0.14)', fill:true, tension:.35, pointRadius:3 }] },
-      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
-        scales:{ x:{ticks:{font:{size:10.5}}}, y:{beginAtZero:true, ticks:{precision:0, font:{size:10.5}}} } } });
-  }
+  const monthNow = (new Date().getMonth()+1)+'월'; const catMap = { '아이':'아이', '립':'립', '미정':'베이스' }; const weekBuckets = {}; rows.filter(r => r.status==='확정' && r.expected_week && r.expected_week.includes(monthNow)).forEach(r => { const wk = r.expected_week; const cat = catMap[r.category] || '기타'; if (!weekBuckets[wk]) weekBuckets[wk] = { '아이':0,'립':0,'베이스':0,'기타':0 }; weekBuckets[wk][cat]++; }); const weekList = Object.keys(weekBuckets).sort((a,b) => { const na = Number((a.match(/\((\d{2})\//)||[])[1] || 99); const nb = Number((b.match(/\((\d{2})\//)||[])[1] || 99); return na-nb; }); const monthTotal = weekList.reduce((s,w)=>s+weekBuckets[w]['아이']+weekBuckets[w]['립']+weekBuckets[w]['베이스']+weekBuckets[w]['기타'],0); const trendTitleEl = document.getElementById('trend-title'); if (trendTitleEl) trendTitleEl.textContent = '당월 확정 인플루언서 ' + monthTotal + '명 · 주차별'; destroyChart('trend'); const tctx = document.getElementById('chart-trend'); if (tctx && window.Chart){ charts.trend = new Chart(tctx, { type:'bar', data:{ labels: weekList.length?weekList:['데이터 없음'], datasets:[ { label:'아이', data: weekList.map(w=>weekBuckets[w]['아이']), backgroundColor:'#8FBBA3' }, { label:'립', data: weekList.map(w=>weekBuckets[w]['립']), backgroundColor:'#B5715F' }, { label:'베이스', data: weekList.map(w=>weekBuckets[w]['베이스']), backgroundColor:'#3E6650' }, { label:'기타', data: weekList.map(w=>weekBuckets[w]['기타']), backgroundColor:'#C9A24B' } ] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:true, position:'bottom'}}, scales:{ x:{ stacked:true }, y:{ stacked:true, beginAtZero:true, ticks:{ precision:0 } } } } }); }
   const catCounts = {};
   rows.forEach(r => { const c = r.category || '미정'; catCounts[c]=(catCounts[c]||0)+1; });
   const catLabels = Object.keys(catCounts).sort((a,b)=>catCounts[b]-catCounts[a]);
