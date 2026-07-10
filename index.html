@@ -1183,7 +1183,7 @@ function wireMobileNav(){const sidebar=document.getElementById('sidebar');const 
   renderNav();
   document.querySelector('.nav-item[data-view="overview"]').classList.add('active');
   wireFilters();
-  loadAll();
+  loadAll(); (function(){ function trySub(){ if (window.supa) { window.supa.channel('market-calendar-changes').on('postgres_changes', { event:'*', schema:'public', table:'market_calendar_events' }, function(){ if (typeof loadAll==='function') loadAll(); }).subscribe(); } else { setTimeout(trySub, 300); } } trySub(); })();
 };
 </script>
 
@@ -1194,7 +1194,7 @@ function wireMobileNav(){const sidebar=document.getElementById('sidebar');const 
   const SB_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwaHd5b2N6c3pqdHhvZ2dsdXBzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzMjExMzUsImV4cCI6MjA5ODg5NzEzNX0.ZXfYLVZJwQ-cJTssRX1R49z4Gi6cHW3TMvg10ABtx1A';
   const ALLOWED_DOMAIN = 'entropymakeup.com';
 
-  const supa = createClient(SB_URL, SB_ANON_KEY);
+  const supa = createClient(SB_URL, SB_ANON_KEY); window.supa = supa;
 
   function showLoading(){
     document.getElementById('auth-loading').style.display = 'flex';
