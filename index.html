@@ -1176,8 +1176,9 @@ function wireFilters(){
   document.getElementById('f-owner').addEventListener('change', e => { filters.owner=e.target.value; VIEWS[currentView].render(); });
   document.getElementById('f-search').addEventListener('input', e => { filters.search=e.target.value; VIEWS[currentView].render(); });
   document.getElementById('f-reset').addEventListener('click', () => { filters={brand:'',category:'',status:'',owner:'',search:''}; document.getElementById('f-search').value=''; populateFilterOptions(); VIEWS[currentView].render(); });
-  document.getElementById('btn-refresh').addEventListener('click', loadAll);
+      document.getElementById('btn-refresh').addEventListener('click', function(){ if (typeof currentView!=='undefined' && currentView==='calendar' && typeof syncGoogleCalendar==='function'){ syncGoogleCalendar(); } else if (typeof loadAll==='function'){ loadAll(); } });
 }
+    function syncGoogleCalendar(){ const token=window.SB_PROVIDER_TOKEN; if(!token){ alert('구글 캘린더 연동 권한이 없습니다. 로그아웃 후 다시 로그인해 주세요.'); if(typeof loadAll==='function') loadAll(); return; } const calId='c_6f9f2d8f39edf78ed0df37c6c18a1c35db46c4f44a96b46dd420b0b3dd6275ef@group.calendar.google.com'; const timeMin=new Date(Date.now()-30*86400000).toISOString(); const timeMax=new Date(Date.now()+200*86400000).toISOString(); function toDateOnly(d){ return d.slice(0,10); } function minusOneDay(ds){ const dt=new Date(ds+'T00:00:00Z'); dt.setUTCDate(dt.getUTCDate()-1); return dt.toISOString().slice(0,10); } function stripHtml(s){ return (s||'').replace(/<br\s*\/?>/gi,'\n').replace(/<\/?[^>]+>/g,'').trim(); } (async function(){ try{ let items=[]; let pageToken=''; do{ const url='https://www.googleapis.com/calendar/v3/calendars/'+encodeURIComponent(calId)+'/events?singleEvents=true&maxResults=250&timeMin='+encodeURIComponent(timeMin)+'&timeMax='+encodeURIComponent(timeMax)+(pageToken?'&pageToken='+pageToken:''); const res=await fetch(url,{headers:{Authorization:'Bearer '+token}}); if(!res.ok){ if(res.status===401){ alert('구글 인증이 만료되었습니다. 로그아웃 후 다시 로그인해 주세요.'); if(typeof loadAll==='function') loadAll(); return; } throw new Error('Google Calendar API error: '+res.status); } const data=await res.json(); items=items.concat(data.items||[]); pageToken=data.nextPageToken||''; }while(pageToken); const rows=items.filter(function(e){ return e.status!=='cancelled'; }).map(function(e){ let start_date,end_date; if(e.start&&e.start.date){ start_date=e.start.date; } else if(e.start&&e.start.dateTime){ start_date=toDateOnly(e.start.dateTime); } if(e.end&&e.end.date){ end_date=minusOneDay(e.end.date); } else if(e.end&&e.end.dateTime){ const dPart=toDateOnly(e.end.dateTime); const timePart=e.end.dateTime.slice(11,19); end_date=(timePart==='00:00:00')?minusOneDay(dPart):dPart; } if(!start_date) start_date=end_date; if(!end_date) end_date=start_date; return { google_event_id:e.id, title:e.summary||'(제목 없음)', start_date:start_date, end_date:end_date, description:stripHtml(e.description), source_link:e.htmlLink||null }; }); if(rows.length){ await sb('market_calendar_events?on_conflict=google_event_id',{ method:'POST', headers:{ 'Prefer':'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(rows) }); } } catch(err){ console.error(err); alert('구글 캘린더 동기화 중 오류가 발생했습니다: '+err.message); } finally{ if(typeof loadAll==='function') loadAll(); } })(); }
 
 function wireMobileNav(){const sidebar=document.getElementById('sidebar');const backdrop=document.getElementById('sidebar-backdrop');const btn=document.getElementById('btn-hamburger');if(!btn||!sidebar||!backdrop)return;btn.addEventListener('click',()=>{sidebar.classList.add('open');backdrop.classList.add('show');});backdrop.addEventListener('click',()=>{sidebar.classList.remove('open');backdrop.classList.remove('show');});}window.initApp = function(){wireMobileNav();
   renderNav();
@@ -1231,7 +1232,7 @@ function wireMobileNav(){const sidebar=document.getElementById('sidebar');const 
       showLogin(`${ALLOWED_DOMAIN} 회사 이메일로만 로그인할 수 있어요. (${email} 계정은 허용되지 않아요)`);
       return;
     }
-    window.SB_ACCESS_TOKEN = session.access_token;
+    window.SB_ACCESS_TOKEN = session.access_token; window.SB_PROVIDER_TOKEN = session.provider_token || window.SB_PROVIDER_TOKEN;
     showApp(session.user);
   }
 
@@ -1240,7 +1241,7 @@ function wireMobileNav(){const sidebar=document.getElementById('sidebar');const 
       provider: 'google',
       options: {
         redirectTo: window.location.href,
-        queryParams: { hd: ALLOWED_DOMAIN, prompt: 'select_account' }
+        queryParams: { hd: ALLOWED_DOMAIN, prompt: 'select_account' }, scopes: 'https://www.googleapis.com/auth/calendar.readonly'
       }
     });
   });
