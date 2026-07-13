@@ -593,7 +593,7 @@ function applyFilters(rows){
 /* ============================================================
    셀러 등록/수정 폼
    ============================================================ */
-const STATUS_OPTIONS = ['콜드','응답','미팅','조건협의','확정','드랍','선물완료'];function sellerFormFields(s){
+const STATUS_OPTIONS = ['컨택','콜드','응답','미팅','조건협의','확정','드랍','선물완료'];function sellerFormFields(s){
   s = s || {};
   return field('seller_name','셀러명(인스타핸들)',{value:s.seller_name, required:true, full:true}) +
     field('brand','브랜드',{value:s.brand}) +
